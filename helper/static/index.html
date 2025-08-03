@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+<!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+<!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+<!--[if gt IE 8]>      <html class="no-js"> <!--<![endif]-->
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>helper</title>
+    <meta name="description" content="helpa">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- <link rel="stylesheet" href=""> -->
+</head>
+
+<body>
+    <!--[if lt IE 7]>
+        <p class="browsehappy">You are using an <strong>outdated</strong> browser. Please <a href="#">upgrade your browser</a> to improve your experience.</p>
+    <![endif]-->
+    <div class="container">
+        <h1>Minecraft Server Control Panel</h1>
+
+        <div class="controls">
+            <button id="startBtn" class="start-btn">Start Server</button>
+            <button id="stopBtn" class="stop-btn">Stop Server</button>
+            <button id="ipBtn" class="info-btn">Get Server IP</button>
+        </div>
+
+        <div id="status"></div>
+        <div id="serverIp"></div>
+    </div>
+
+    <div class="container">
+        <h2>System Statistics</h2>
+        <div id="connectionStatus" class="connection-status disconnected">
+            Disconnected from stats
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-title">System RAM</div>
+                <div id="systemRam" class="stat-value">-</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-title">CPU Usage per Core</div>
+                <div id="cpuCores" class="cpu-cores">-</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-title">Server RAM Usage</div>
+                <div id="serverRam" class="stat-value">-</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-title">Server CPU Usage</div>
+                <div id="serverCpu" class="stat-value">-</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-title">Server Disk I/O</div>
+                <div id="serverDisk" class="stat-value">-</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="index.js" async defer></script>
+</body>
+
+</html>

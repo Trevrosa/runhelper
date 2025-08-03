@@ -8,12 +8,9 @@ use crate::AppState;
 pub async fn ip(State(state): State<Arc<AppState>>) -> Result<String, StatusCode> {
     let client = &state.client;
 
-    let req = client
-        .get("https://ipinfo.io/ip")
-        .build()
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let resp = client
-        .execute(req)
+        .get("https://ipinfo.io/ip")
+        .send()
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 

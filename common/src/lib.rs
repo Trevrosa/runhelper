@@ -1,7 +1,7 @@
-use bitcode::Encode;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Default, Clone, Encode)]
-pub struct Stats { 
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct Stats {
     /// usage per cpu core.
     pub system_cpu_usage: Vec<f32>,
     // percentage use.

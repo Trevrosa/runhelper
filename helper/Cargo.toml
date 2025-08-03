@@ -4,3 +4,15 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+bitcode = { version = "0.6", features = ["serde"] }
+rocket = "0.5"
+rocket_ws = "0.1"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+common = { path = "../common" }
+reqwest = "0.12"
+reqwest-websocket = "0.5"
+dotenvy = "0.15"
+anyhow = "1.0"
+serde_json = "1.0"
+wake-on-lan = "0.2"

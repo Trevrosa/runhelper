@@ -27,7 +27,7 @@ use tokio::{
 };
 use tracing::Level;
 
-use crate::routes::{ip, run, stats, stop};
+use crate::routes::{ip, ping, run, stats, stop};
 
 #[derive(Debug)]
 struct AppState {
@@ -93,6 +93,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/stop", get(stop))
         .route("/stats", get(stats))
         .route("/ip", get(ip))
+        .route("/ping", get(ping))
         .with_state(app_state.clone())
         .layer(middleware::from_fn(trace));
 
@@ -170,8 +171,10 @@ async fn main() -> anyhow::Result<()> {
         .unwrap_or(4321);
     let ip = SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, port);
 
+    let server_path = &*SERVER_PATH;
+
     tracing::info!("running server on :{port}");
-    tracing::info!("mc server set at {:?}", &*SERVER_PATH);
+    tracing::info!("mc server set at {server_path:?}");
     tracing::info!("");
     let java_version = Command::new("java")
         .arg("--version")
