@@ -1,6 +1,9 @@
 use std::{
     env,
-    sync::atomic::{AtomicBool, Ordering},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
     time::Duration,
 };
 
@@ -14,7 +17,7 @@ use crate::UrlExt;
 #[get("/wake")]
 pub async fn wake(
     client: &State<Client>,
-    runner: &State<Url>,
+    runner: &State<Arc<Url>>,
     waking: &State<AtomicBool>,
 ) -> Result<&'static str, Status> {
     if waking.load(Ordering::Relaxed) {
