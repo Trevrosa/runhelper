@@ -19,11 +19,11 @@ pub async fn stats(ws: WebSocketUpgrade, State(state): State<Arc<AppState>>) -> 
 
 async fn handle_socket(mut socket: WebSocket, mut channel: Receiver<Stats>) {
     while let Ok(stats) = channel.recv().await {
-        let msg = Message::binary(bitcode::encode(&stats));
-        // let msg = Message::text(format!("{stats:#?}"));
+        // let msg = Message::binary(bitcode::encode(&stats));
+        let msg = Message::text(format!("{stats:#?}"));
 
         if let Err(err) = socket.send(msg).await {
-            tracing::warn!("failed to send msg: {err}, closing websocket");
+            tracing::warn!("{err}, closing websocket");
             return;
         }
 
