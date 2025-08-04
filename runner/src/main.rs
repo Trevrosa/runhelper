@@ -18,7 +18,7 @@ use axum::{
     routing::get,
 };
 use common::Stats;
-use sysinfo::{Cpu, Pid, ProcessRefreshKind, RefreshKind, System};
+use sysinfo::{Cpu, MemoryRefreshKind, Pid, ProcessRefreshKind, RefreshKind, System};
 use tokio::{
     io::AsyncWriteExt,
     net::TcpListener,
@@ -133,7 +133,7 @@ async fn main() -> anyhow::Result<()> {
         loop {
             let mut stats = Stats {
                 system_cpu_usage: system.cpus().iter().map(Cpu::cpu_usage).collect(),
-                system_ram_free: system.free_memory(),
+                system_ram_free: system.available_memory(),
                 system_ram_used: system.used_memory(),
                 server_ram_usage: None,
                 server_cpu_usage: None,
@@ -163,7 +163,8 @@ async fn main() -> anyhow::Result<()> {
             }
 
             tokio::time::sleep(Duration::from_secs(1)).await;
-            system.refresh_specifics(RefreshKind::everything().without_processes());
+            system.refresh_specifics(RefreshKind::everything().without_processes().without_memory());
+            system.refresh_memory_specifics(MemoryRefreshKind::everything().without_swap());
         }
     });
 
