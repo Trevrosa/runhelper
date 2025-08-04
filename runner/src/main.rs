@@ -18,12 +18,20 @@ use axum::{
 use common::Stats;
 use tokio::{
     net::TcpListener,
-    process::{ChildStdin, ChildStdout, Command},
+    process::{ChildStdin, Command},
     sync::{RwLock, broadcast},
 };
 use tracing::Level;
 
 use crate::routes::{console, ip, ping, run, stats, stop};
+
+#[cfg(not(target_env = "msvc"))]
+#[global_allocator]
+static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
+#[cfg(target_env = "msvc")]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 #[derive(Debug)]
 struct AppState {
@@ -34,7 +42,6 @@ struct AppState {
     server_pid: AtomicU32,
     server_running: AtomicBool,
     server_stdin: RwLock<Option<ChildStdin>>,
-    server_stdout: RwLock<Option<ChildStdout>>,
 }
 
 impl AppState {
@@ -46,7 +53,6 @@ impl AppState {
             server_running: AtomicBool::new(false),
             server_pid: AtomicU32::new(0),
             server_stdin: RwLock::new(None),
-            server_stdout: RwLock::new(None),
         }
     }
 }
@@ -87,7 +93,6 @@ async fn main() -> anyhow::Result<()> {
         .layer(middleware::from_fn(helpers::trace));
 
     tokio::spawn(helpers::shutdown(app_state.clone()));
-    tokio::spawn(helpers::console_reader(app_state.clone()));
     tokio::spawn(helpers::stats_refresher(app_state.clone()));
 
     if let Err(err) = dotenvy::dotenv() {

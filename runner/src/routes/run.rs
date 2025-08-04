@@ -9,7 +9,7 @@ use axum::extract::State;
 use reqwest::StatusCode;
 use tokio::process::Command;
 
-use crate::{AppState, SERVER_PATH};
+use crate::{helpers, AppState, SERVER_PATH};
 
 #[derive(Debug)]
 enum ServerType {
@@ -123,13 +123,12 @@ pub async fn run(State(state): State<Arc<AppState>>) -> (StatusCode, &'static st
             }
 
             if let Some(stdout) = child.stdout.take() {
-                state.server_stdout.write().await.replace(stdout);
+                tokio::spawn(helpers::console_reader(state, stdout));
             } else {
                 tracing::warn!("could not get server stdout");
             }
         }
         ServerType::Paper | ServerType::Vanilla => {
-            state.server_running.store(false, Ordering::Release);
             todo!()
         }
     }

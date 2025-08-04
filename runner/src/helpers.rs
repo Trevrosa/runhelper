@@ -6,7 +6,7 @@ use std::{
 use axum::{extract::Request, middleware::Next, response::Response};
 use common::Stats;
 use sysinfo::{Cpu, MemoryRefreshKind, Pid, ProcessRefreshKind, RefreshKind, System};
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::{io::{AsyncBufReadExt, AsyncWriteExt, BufReader}, process::ChildStdout};
 use tracing::Level;
 
 use crate::AppState;
@@ -39,6 +39,7 @@ pub async fn shutdown(state: Arc<AppState>) {
 
     let mut stdin = state.server_stdin.write().await;
     if let Some(stdin) = stdin.as_mut() {
+        tracing::info!("sending /stop");
         stdin
             .write_all(b"/stop\n")
             .await
@@ -100,24 +101,35 @@ pub async fn stats_refresher(app_state: Arc<AppState>) {
     }
 }
 
-/// a background task that reads the stdout of the server (if running)
-pub async fn console_reader(state: Arc<AppState>) {
-    loop {
-        let mut stdout = state.server_stdout.write().await;
-        let Some(stdout) = stdout.as_mut() else {
-            tokio::time::sleep(Duration::from_secs(3)).await;
-            continue;
-        };
+/// when the sender is done, it sends this message.
+pub const CONSOLE_CHANNEL_STOP_SIGNAL: &str = "CHANNELSTOPSTOPSTOP";
 
+/// a background task that reads the stdout of the server (if running)
+pub async fn console_reader(state: Arc<AppState>, console_stdout: ChildStdout) {
+    loop {
         let tx = &state.console_channel;
-        let mut stdout = BufReader::new(stdout).lines();
-        while let Ok(Some(line)) = stdout.next_line().await {
-            if let Err(err) = tx.send(line) {
+        let mut console = BufReader::new(console_stdout).lines();
+        let mut log = tokio::io::stdout();
+        while let Ok(Some(line)) = console.next_line().await {
+            let _ = log.write_all(line.as_bytes()).await;
+            let _ = log.write_u8(b'\n').await;
+
+            // hide ips and coords
+            let masked = line
+                .chars()
+                .map(|char| if char.is_ascii_digit() { '*' } else { char })
+                .collect();
+
+            if let Err(err) = tx.send(masked) {
                 tracing::warn!("failed to broadcast: {err}");
             }
         }
 
-        tracing::warn!("no next line from server stdout");
-        tokio::time::sleep(Duration::from_secs(3)).await;
+        tracing::warn!("server stdout closed");
+        if let Err(err) = tx.send(CONSOLE_CHANNEL_STOP_SIGNAL.to_string()) {
+            tracing::warn!("failed to send stop signal: {err}");
+        }
+        state.server_running.store(false, Ordering::Release);
+        break;
     }
 }

@@ -14,3 +14,9 @@ tokio = { version = "1.47", features = ["fs", "macros", "process", "rt-multi-thr
 tracing = "0.1"
 tracing-subscriber = "0.3"
 common = { path = "../common" }
+
+[target.'cfg(target_env = "msvc")'.dependencies]
+mimalloc = "0.1"
+
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
+tikv-jemallocator = "0.6"

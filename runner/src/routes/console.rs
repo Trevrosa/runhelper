@@ -1,26 +1,49 @@
-use std::sync::Arc;
+use std::sync::{atomic::Ordering, Arc};
 
 use axum::{
     extract::{
         State, WebSocketUpgrade,
         ws::{Message, WebSocket},
     },
+    http::StatusCode,
     response::Response,
 };
-use tokio::sync::broadcast::Receiver;
+use tokio::sync::broadcast::{error::RecvError, Receiver};
 
-use crate::AppState;
+use crate::{helpers::CONSOLE_CHANNEL_STOP_SIGNAL, AppState};
 
-pub async fn console(ws: WebSocketUpgrade, State(state): State<Arc<AppState>>) -> Response {
+pub async fn console(
+    ws: WebSocketUpgrade,
+    State(state): State<Arc<AppState>>,
+) -> Result<Response, StatusCode> {
+    if !state.server_running.load(Ordering::Relaxed) {
+        return Err(StatusCode::SERVICE_UNAVAILABLE)
+    }
+
     let channel = state.clone().console_channel.subscribe();
-    ws.on_upgrade(|socket| handle_socket(socket, channel))
+    Ok(ws.on_upgrade(|socket| handle_socket(socket, channel)))
 }
 
 async fn handle_socket(mut socket: WebSocket, mut channel: Receiver<String>) {
-    while let Ok(line) = channel.recv().await {
-        if let Err(err) = socket.send(Message::text(line)).await {
-            tracing::warn!("{err}, closing socket");
-            break;
+    loop {
+        match channel.recv().await {
+            Ok(line) => {
+                if line == CONSOLE_CHANNEL_STOP_SIGNAL {
+                    tracing::info!("server stdout channel stopped");
+                    break;
+                }
+                if let Err(err) = socket.send(Message::text(line)).await {
+                    tracing::warn!("{err}, closing socket");
+                    break;
+                }
+            }
+            Err(RecvError::Lagged(lag)) => {
+                tracing::warn!("channel lagged {lag} msgs");
+            }
+            Err(RecvError::Closed) => {
+                tracing::warn!("channel closed");
+                break;
+            }
         }
     }
 }
