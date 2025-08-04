@@ -1,27 +1,16 @@
 use std::{
     env,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
-    time::Duration,
+    sync::atomic::{AtomicBool, Ordering},
 };
 
-use reqwest::{Client, Url};
-use rocket::{State, get, http::Status, tokio};
+use rocket::{State, get, http::Status};
 use wake_on_lan::MagicPacket;
-
-use crate::UrlExt;
 
 /// wake the runner
 #[get("/wake")]
-pub async fn wake(
-    client: &State<Client>,
-    runner: &State<Arc<Url>>,
-    waking: &State<AtomicBool>,
-) -> Result<&'static str, Status> {
+pub async fn wake(waking: &State<AtomicBool>) -> (Status, &'static str) {
     if waking.load(Ordering::Relaxed) {
-        return Err(Status::TooManyRequests);
+        return (Status::TooManyRequests, "already waking");
     }
 
     waking.store(true, Ordering::Release);
@@ -29,7 +18,7 @@ pub async fn wake(
     let Ok(mac) = env::var("PHYS_ADDR") else {
         tracing::error!("no PHYS_ADDR env var.");
         waking.store(false, Ordering::Release);
-        return Err(Status::InternalServerError);
+        return (Status::InternalServerError, "PHYS_ADDR not set");
     };
     let bytes: Vec<_> = mac.split('-').collect();
     if bytes.len() != 6 {
@@ -38,7 +27,7 @@ pub async fn wake(
             bytes.len()
         );
         waking.store(false, Ordering::Release);
-        return Err(Status::InternalServerError);
+        return (Status::InternalServerError, "PHYS_ADDR invalid");
     }
 
     let mut mac = [0; 6];
@@ -46,7 +35,7 @@ pub async fn wake(
         let Ok(byte) = u8::from_str_radix(hex, 16) else {
             tracing::error!("could not parse {hex} to a byte");
             waking.store(false, Ordering::Release);
-            return Err(Status::InternalServerError);
+            return (Status::InternalServerError, "PHYS_ADDR invalid");
         };
         mac[i] = byte;
     }
@@ -56,15 +45,8 @@ pub async fn wake(
     if let Err(err) = magic.send() {
         tracing::warn!("failed to send magic packet: {err}");
         waking.store(false, Ordering::Release);
-        return Err(Status::InternalServerError);
+        return (Status::InternalServerError, "failed to send magic packet");
     }
 
-    loop {
-        let resp = client.get(runner.join_unchecked("ping")).send().await;
-        if resp.is_ok() {
-            return Ok("woken!");
-        }
-
-        tokio::time::sleep(Duration::from_secs(5)).await;
-    }
+    (Status::Ok, "requested the server to wake up!")
 }

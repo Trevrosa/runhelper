@@ -1,4 +1,4 @@
-use std::sync::{atomic::Ordering, Arc};
+use std::sync::{Arc, atomic::Ordering};
 
 use axum::{
     extract::{
@@ -8,16 +8,16 @@ use axum::{
     http::StatusCode,
     response::Response,
 };
-use tokio::sync::broadcast::{error::RecvError, Receiver};
+use tokio::sync::broadcast::{Receiver, error::RecvError};
 
-use crate::{helpers::CONSOLE_CHANNEL_STOP_SIGNAL, AppState};
+use crate::{AppState, helpers::CONSOLE_CHANNEL_STOP_SIGNAL};
 
 pub async fn console(
     ws: WebSocketUpgrade,
     State(state): State<Arc<AppState>>,
 ) -> Result<Response, StatusCode> {
     if !state.server_running.load(Ordering::Relaxed) {
-        return Err(StatusCode::SERVICE_UNAVAILABLE)
+        return Err(StatusCode::SERVICE_UNAVAILABLE);
     }
 
     let channel = state.clone().console_channel.subscribe();

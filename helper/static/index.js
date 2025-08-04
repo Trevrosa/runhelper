@@ -79,7 +79,36 @@ async function getServerIp() {
   }
 }
 
-async function wakeServer() {}
+async function wakeServer() {
+  try {
+    wakeBtn.disabled = true;
+    wakeBtn.style.backgroundColor = "#ff9800"; // Orange color while waking
+    wakeBtn.innerText = "Waking...";
+
+    const response = await fetch("/api/wake");
+    const text = await response.text();
+
+    if (response.ok) {
+      showStatus(`Wake successful: ${text}`);
+      wakeBtn.style.backgroundColor = "#4CAF50"; // Green on success
+      wakeBtn.innerText = "Wake Server";
+    } else {
+      showStatus(`Failed to wake server: ${text}`, true);
+      wakeBtn.style.backgroundColor = "#f44336"; // Red on failure
+      wakeBtn.innerText = "Wake Server";
+    }
+  } catch (error) {
+    showStatus(`Error waking server: ${error.message}`, true);
+    wakeBtn.style.backgroundColor = "#f44336"; // Red on error
+    wakeBtn.innerText = "Wake Server";
+  } finally {
+    setTimeout(() => {
+      wakeBtn.disabled = false;
+      wakeBtn.style.backgroundColor = ""; // Reset to default
+      wakeBtn.innerText = "Wake Server";
+    }, 2000); // Keep the status color for 2 seconds
+  }
+}
 
 const statsTimeout = 1000;
 let lastStatsMsg = 0;

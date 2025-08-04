@@ -6,7 +6,10 @@ use std::{
 use axum::{extract::Request, middleware::Next, response::Response};
 use common::Stats;
 use sysinfo::{Cpu, MemoryRefreshKind, Pid, ProcessRefreshKind, RefreshKind, System};
-use tokio::{io::{AsyncBufReadExt, AsyncWriteExt, BufReader}, process::ChildStdout};
+use tokio::{
+    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
+    process::ChildStdout,
+};
 use tracing::Level;
 
 use crate::AppState;
@@ -106,30 +109,29 @@ pub const CONSOLE_CHANNEL_STOP_SIGNAL: &str = "CHANNELSTOPSTOPSTOP";
 
 /// a background task that reads the stdout of the server (if running)
 pub async fn console_reader(state: Arc<AppState>, console_stdout: ChildStdout) {
-    loop {
-        let tx = &state.console_channel;
-        let mut console = BufReader::new(console_stdout).lines();
-        let mut log = tokio::io::stdout();
-        while let Ok(Some(line)) = console.next_line().await {
-            let _ = log.write_all(line.as_bytes()).await;
-            let _ = log.write_u8(b'\n').await;
+    let tx = &state.console_channel;
+    let mut console = BufReader::new(console_stdout).lines();
+    let mut log = tokio::io::stdout();
+    while let Ok(Some(line)) = console.next_line().await {
+        let _ = log.write_all(line.as_bytes()).await;
+        let _ = log.write_u8(b'\n').await;
 
-            // hide ips and coords
-            let masked = line
-                .chars()
-                .map(|char| if char.is_ascii_digit() { '*' } else { char })
-                .collect();
+        // hide ips and coords
+        let masked = line
+            .chars()
+            .map(|char| if char.is_ascii_digit() { '*' } else { char })
+            .collect();
 
-            if let Err(err) = tx.send(masked) {
-                tracing::warn!("failed to broadcast: {err}");
-            }
+        if let Err(err) = tx.send(masked) {
+            tracing::warn!("failed to broadcast: {err}");
         }
-
-        tracing::warn!("server stdout closed");
-        if let Err(err) = tx.send(CONSOLE_CHANNEL_STOP_SIGNAL.to_string()) {
-            tracing::warn!("failed to send stop signal: {err}");
-        }
-        state.server_running.store(false, Ordering::Release);
-        break;
     }
+
+    tracing::warn!("server stdout closed");
+    if let Err(err) = tx.send(CONSOLE_CHANNEL_STOP_SIGNAL.to_string()) {
+        tracing::warn!("failed to send stop signal: {err}");
+    }
+
+    state.server_pid.store(0, Ordering::Release);
+    state.server_running.store(false, Ordering::Release);
 }

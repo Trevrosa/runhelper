@@ -21,7 +21,17 @@ use rocket::{
     },
 };
 
-use crate::api::{console::console, ip::ip, run::run, stats::stats, stop::stop, wake::wake};
+use crate::api::{
+    console::console, ip::ip, ping::ping, run::run, stats::stats, stop::stop, wake::wake,
+};
+
+#[cfg(not(target_env = "msvc"))]
+#[global_allocator]
+static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
+#[cfg(target_env = "msvc")]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 fn get_runner_addr() -> anyhow::Result<Url> {
     let addr = env::var("RUNNER_ADDR").context("runner addr not found")?;
@@ -167,16 +177,16 @@ async fn main() -> Result<(), rocket::Error> {
     let thread = (client.clone(), runner_addr.clone(), console_tx.clone());
     tokio::spawn(console_helper(thread.0, thread.1, thread.2));
 
-    rocket::custom(config)
+    let _ = rocket::custom(config)
         .mount("/", FileServer::from("./static"))
-        .mount("/api", routes![ip, run, stats, stop, wake, console])
+        .mount("/api", routes![ip, run, stop, ping, stats, console, wake])
         .manage(client)
         .manage(runner_addr)
         .manage(stats_tx)
         .manage(console_tx)
         .manage(AtomicBool::new(false))
         .launch()
-        .await?;
+        .await;
 
     Ok(())
 }

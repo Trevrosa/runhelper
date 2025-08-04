@@ -7,6 +7,10 @@ use tokio::io::AsyncWriteExt;
 use crate::AppState;
 
 pub async fn stop(State(state): State<Arc<AppState>>) -> (StatusCode, &'static str) {
+    if !state.server_running.load(Ordering::Relaxed) {
+        return (StatusCode::NOT_MODIFIED, "already stopped");
+    }
+
     let mut stdin = state.server_stdin.write().await;
 
     if let Some(stdin) = stdin.as_mut() {
@@ -17,8 +21,6 @@ pub async fn stop(State(state): State<Arc<AppState>>) -> (StatusCode, &'static s
                 "failed to turn off server",
             )
         } else {
-            state.server_pid.store(0, Ordering::Release);
-            state.server_running.store(false, Ordering::Release);
             (StatusCode::OK, "turned off!")
         }
     } else {

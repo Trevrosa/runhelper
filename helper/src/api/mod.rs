@@ -37,6 +37,8 @@ make_forward!(stop, "/stop");
 
 make_forward!(ip, "/ip");
 
+make_forward!(ping, "/ping");
+
 pub mod stats;
 
 pub mod console;
