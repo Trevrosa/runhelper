@@ -100,6 +100,7 @@ pub async fn run(State(state): State<Arc<AppState>>) -> (StatusCode, &'static st
 
             let child = Command::new("java")
                 .args(args)
+                .stdout(Stdio::piped())
                 .stdin(Stdio::piped())
                 .current_dir(server_path)
                 .spawn();
@@ -119,6 +120,12 @@ pub async fn run(State(state): State<Arc<AppState>>) -> (StatusCode, &'static st
                 state.server_stdin.write().await.replace(stdin);
             } else {
                 tracing::warn!("could not get server stdin");
+            }
+
+            if let Some(stdout) = child.stdout.take() {
+                state.server_stdout.write().await.replace(stdout);
+            } else {
+                tracing::warn!("could not get server stdout");
             }
         }
         ServerType::Paper | ServerType::Vanilla => {

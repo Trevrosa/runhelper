@@ -1,9 +1,9 @@
-function wsstats() {
-  let a = new WebSocket("http://localhost:4321/stats");
+function wsconsole() {
+  let a = new WebSocket("http://localhost:4321/console");
 
   a.onclose = (_e) => {
     console.log("reconnecting..");
-    setTimeout(wsstats, 1000);
+    setTimeout(wsconsole, 1000);
   };
 
   a.onopen = (_e) => {
@@ -15,4 +15,4 @@ function wsstats() {
   };
 }
 
-wsstats();
+wsconsole();

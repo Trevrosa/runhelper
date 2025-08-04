@@ -12,3 +12,6 @@ pub use ip::ip;
 
 mod ping;
 pub use ping::ping;
+
+mod console;
+pub use console::console;
