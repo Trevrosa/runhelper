@@ -78,7 +78,7 @@ async fn stats_helper(client: reqwest::Client, runner_addr: Arc<Url>, tx: Sender
             if let Message::Binary(bytes) = message {
                 if let Err(err) = tx.send(bytes) {
                     tracing::warn!("failed to broadcast: {err}");
-                };
+                }
             } else {
                 tracing::warn!("expected binary, got something else");
             }
@@ -125,7 +125,7 @@ async fn console_helper(client: reqwest::Client, runner_addr: Arc<Url>, tx: Send
             if let Message::Text(text) = message {
                 if let Err(err) = tx.send(text) {
                     tracing::warn!("failed to broadcast: {err}");
-                };
+                }
             } else {
                 tracing::warn!("expected text, got something else");
             }
@@ -176,8 +176,7 @@ async fn main() -> Result<(), rocket::Error> {
         .manage(console_tx)
         .manage(AtomicBool::new(false))
         .launch()
-        .await
-        .unwrap();
+        .await?;
 
     Ok(())
 }

@@ -20,7 +20,10 @@ macro_rules! make_forward {
                     .await
                     .map_err(|_| Status::ServiceUnavailable)?;
                 let status = $name.status();
-                let $name = $name.text().await.map_err(|_| Status::InternalServerError)?;
+                let $name = $name
+                    .text()
+                    .await
+                    .map_err(|_| Status::InternalServerError)?;
 
                 Ok((Status::new(status.as_u16()), $name))
             }
