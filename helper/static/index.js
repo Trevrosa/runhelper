@@ -1,19 +1,7 @@
 // DOM elements
-const startBtn = document.getElementById("startBtn");
-const stopBtn = document.getElementById("stopBtn");
-const ipBtn = document.getElementById("ipBtn");
 const statusElem = document.getElementById("status");
 const serverIp = document.getElementById("serverIp");
 const connectionStatus = document.getElementById("connectionStatus");
-
-// Stats elements
-const systemRam = document.getElementById("systemRam");
-const cpuCores = document.getElementById("cpuCores");
-const serverRam = document.getElementById("serverRam");
-const serverCpu = document.getElementById("serverCpu");
-const serverDisk = document.getElementById("serverDisk");
-
-let statsSocket = null;
 
 // Utility functions
 function showStatus(message, isError = false) {
@@ -28,11 +16,11 @@ function formatBytes(bytes) {
   const k = 1024;
   const sizes = ["B", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 }
 
 function formatPercent(value) {
-  return `${value.toFixed(1)}%`;
+  return `${value.toFixed(0)}%`;
 }
 
 // API calls
@@ -79,7 +67,7 @@ async function getServerIp() {
 
     if (response.ok) {
       const ip = await response.text();
-      serverIp.innerHTML = `<div class="status success">Server IP: ${ip.trim()}</div>`;
+      serverIp.innerHTML = `<div class="status success"><span class="noselect">Server IP: </span>${ip.trim()}</div>`;
     } else {
       const error = await response.text();
       serverIp.innerHTML = `<div class="status error">Failed to get IP: ${error}</div>`;
@@ -91,22 +79,51 @@ async function getServerIp() {
   }
 }
 
+async function wakeServer() {}
+
+const statsTimeout = 1000;
+let lastStatsMsg = 0;
+let statsConnected = false;
+
+setInterval(() => {
+  if (!statsConnected) return;
+
+  const lastMsg = Math.round((performance.now() - lastStatsMsg) / 1000);
+  if (lastMsg >= 3) {
+    connectionStatus.innerText = `Connected to stats (last update ${lastMsg}s ago)`;
+    connectionStatus.className = "connection-status connecting";
+  } else if (connectionStatus.innerText != "Connected to stats") {
+    connectionStatus.innerText = `Connected to stats`;
+    connectionStatus.className = "connection-status connected";
+  }
+}, 1000);
+
+/**
+ * @type {WebSocket | null}
+ */
+let statsSocket = null;
+
 // WebSocket connection for stats
 function connectStats() {
   try {
+    connectionStatus.innerText = "Connecting to stats..";
+    connectionStatus.className = "connection-status connecting";
     statsSocket = new WebSocket("/api/stats");
 
     statsSocket.onopen = () => {
-      connectionstatusElem.textContent = "Connected to stats";
-      connectionstatusElem.className = "connection-status connected";
+      lastStatsMsg = performance.now();
+      statsConnected = true;
+      connectionStatus.innerText = "Connected to stats";
+      connectionStatus.className = "connection-status connected";
     };
 
     statsSocket.onclose = () => {
-      connectionstatusElem.textContent = "Disconnected from stats";
-      connectionstatusElem.className = "connection-status disconnected";
+      statsConnected = false;
+      connectionStatus.innerText = `Disconnected from stats`;
+      connectionStatus.className = "connection-status disconnected";
 
-      // Reconnect after 3 seconds
-      setTimeout(connectStats, 3000);
+      // Reconnect
+      setTimeout(connectStats, statsTimeout);
     };
 
     statsSocket.onerror = (error) => {
@@ -114,50 +131,181 @@ function connectStats() {
     };
 
     statsSocket.onmessage = (event) => {
+      lastStatsMsg = performance.now();
       try {
-        // The data comes as debug format, so we'll display it as-is for now
-        // In a real implementation, you'd parse the actual Stats struct
-        const data = event.data;
-
-        // For now, just show raw data in console and update with placeholder
-        console.log("Stats received:", data);
-
-        // You would parse the actual stats here
-        // For demonstration, showing placeholder updates
-        updateStatsDisplay(data);
+        updateStatsDisplay(JSON.parse(event.data));
       } catch (error) {
         console.error("Error processing stats:", error);
       }
     };
   } catch (error) {
+    statsConnected = false;
     console.error("Failed to connect to stats WebSocket:", error);
-    setTimeout(connectStats, 3000);
+    setTimeout(connectStats, statsTimeout);
   }
 }
 
-function updateStatsDisplay(rawData) {
-  // Since the stats come as debug format text, we'll show a simplified version
-  // In a real implementation, you'd parse the actual Stats struct
+// Stats elements
+const systemRam = document.getElementById("systemRam");
+const cpuCores = document.getElementById("cpuCores");
+const cpuTotal = document.getElementById("cpuTotal");
+const serverRam = document.getElementById("serverRam");
+const serverCpu = document.getElementById("serverCpu");
+const serverDisk = document.getElementById("serverDisk");
 
-  systemRam.textContent = "Receiving data...";
-  cpuCores.textContent = "Receiving data...";
-  serverRam.textContent = rawData.includes("server_ram_usage: Some")
-    ? "Active"
-    : "N/A";
-  serverCpu.textContent = rawData.includes("server_cpu_usage: Some")
-    ? "Active"
-    : "N/A";
-  serverDisk.textContent = rawData.includes("server_disk_usage: Some")
-    ? "Active"
-    : "N/A";
+function updateStatsDisplay(data) {
+  const system_ram = data.system_ram_free + data.system_ram_used;
+  const system_ram_free = formatBytes(data.system_ram_free);
+  const system_ram_free_percent = (
+    (data.system_ram_free / system_ram) *
+    100
+  ).toFixed(2);
+  const system_ram_used = formatBytes(data.system_ram_used);
+  const system_ram_used_percent = (
+    (data.system_ram_used / system_ram) *
+    100
+  ).toFixed(2);
+  systemRam.innerHTML = `<div class="green">Free: ${system_ram_free} (${system_ram_free_percent}%)</div>
+  <div class="red">Used: ${system_ram_used} (${system_ram_used_percent}%)</div>`;
+
+  if (cpuCores.children.length == 0) {
+    cpuCores.innerHTML = "";
+    for (const usage of data.system_cpu_usage) {
+      const core = document.createElement("div");
+      core.className = "cpu-core";
+      core.innerText = formatPercent(usage);
+      cpuCores.appendChild(core);
+    }
+  } else {
+    let i = 0;
+    for (const usage of data.system_cpu_usage) {
+      cpuCores.children[i].innerText = formatPercent(usage);
+      i += 1;
+    }
+  }
+  const system_cpu_total =
+    data.system_cpu_usage.reduce((sum, usage) => sum + usage, 0) /
+    data.system_cpu_usage.length;
+  if (system_cpu_total < 50) {
+    cpuTotal.innerHTML = `System CPU Usage per Core <span class="normal">(<span class="green">${Math.round(
+      system_cpu_total
+    )}%</span> total)</span>`;
+  } else if (system_cpu_total < 80) {
+    cpuTotal.innerHTML = `System CPU Usage per Core <span class="normal">(<span class="yellow">${Math.round(
+      system_cpu_total
+    )}%</span> total)</span>`;
+  } else {
+    cpuTotal.innerHTML = `System CPU Usage per Core <span class="normal">(<span class="red">${Math.round(
+      system_cpu_total
+    )}%</span> total)</span>`;
+  }
+
+  if (data.server_cpu_usage) {
+    const server_cpu_usage = Math.round(
+      data.server_cpu_usage / data.system_cpu_usage.length
+    );
+    serverCpu.innerText = `${Math.round(server_cpu_usage)}%`;
+  } else {
+    serverCpu.innerText = "-";
+  }
+
+  if (data.server_ram_usage) {
+    const server_ram_usage = formatBytes(data.server_ram_usage);
+    const server_system_ram = (
+      (data.server_ram_usage / system_ram) *
+      100
+    ).toFixed(2);
+    serverRam.innerText = `${server_ram_usage} (${server_system_ram}% of system)`;
+  } else {
+    serverRam.innerText = "-";
+  }
+
+  if (data.server_disk_usage) {
+    let server_disk_usage = formatBytes(data.server_disk_usage);
+    serverDisk.innerText = `${server_disk_usage}`;
+  } else {
+    serverDisk.innerText = "-";
+  }
 }
 
-// Event listeners
-startBtn.addEventListener("click", startServer);
-stopBtn.addEventListener("click", stopServer);
-ipBtn.addEventListener("click", getServerIp);
+const startBtn = document.getElementById("startBtn");
+const stopBtn = document.getElementById("stopBtn");
+const ipBtn = document.getElementById("ipBtn");
+const wakeBtn = document.getElementById("wakeBtn");
 
-// Initialize
-document.addEventListener("DOMContentLoaded", () => {
-  connectStats();
-});
+// Event listeners
+startBtn.onclick = startServer;
+stopBtn.onclick = stopServer;
+ipBtn.onclick = getServerIp;
+wakeBtn.onclick = wakeServer;
+
+serverIp.onclick = async (ev) => {
+  const ip = ev.target.innerText.split(": ");
+  if (ip[1]) {
+    await navigator.clipboard.writeText(ip[1]);
+
+    const notification = document.createElement("div");
+    notification.className = "copy-notification";
+    notification.textContent = "copied to clipboard";
+
+    notification.style.left = `${ev.clientX}px`;
+    notification.style.top = `${ev.clientY - 12}px`;
+
+    document.body.appendChild(notification);
+
+    // Remove the notification after animation completes
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.parentNode.removeChild(notification);
+      }
+    }, 1000);
+  }
+};
+
+const consoleElement = document.getElementById("console");
+
+function addConsoleMessage(message) {
+  consoleElement.innerHTML += `${message}\n`;
+  consoleElement.scrollTop = consoleElement.scrollHeight;
+
+  // limit console history to 500 lines
+  const lines = consoleElement.innerHTML.split("\n");
+  if (lines.length > 500) {
+    consoleElement.innerHTML = lines.slice(-500).join("\n");
+  }
+}
+
+/**
+ * @type {WebSocket | null}
+ */
+let consoleSocket = null;
+
+function connectConsole() {
+  try {
+    consoleSocket = new WebSocket("/api/console");
+
+    consoleSocket.onopen = () => {
+      addConsoleMessage("connected to console");
+    };
+
+    consoleSocket.onclose = () => {
+      console.error("disconnected from server console, reconnecting");
+      // Reconnect
+      setTimeout(connectConsole, statsTimeout);
+    };
+
+    consoleSocket.onerror = (error) => {
+      console.error(`WebSocket error: ${error}`);
+    };
+
+    consoleSocket.onmessage = (event) => {
+      addConsoleMessage(event.data);
+    };
+  } catch (error) {
+    console.error(`Failed to connect to stats WebSocket: ${error}`);
+    setTimeout(connectConsole, statsTimeout);
+  }
+}
+
+connectStats();
+connectConsole();

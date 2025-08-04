@@ -11,31 +11,39 @@
     <title>helper</title>
     <meta name="description" content="helpa">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <!-- <link rel="stylesheet" href=""> -->
+    <link rel="stylesheet" href="index.css">
 </head>
 
 <body>
     <!--[if lt IE 7]>
         <p class="browsehappy">You are using an <strong>outdated</strong> browser. Please <a href="#">upgrade your browser</a> to improve your experience.</p>
     <![endif]-->
-    <div class="container">
-        <h1>Minecraft Server Control Panel</h1>
+    <noscript>This website requires Javascript!</noscript>
+    <div class="container split">
+        <div class="left">
+            <h1>run run server</h1>
 
-        <div class="controls">
-            <button id="startBtn" class="start-btn">Start Server</button>
-            <button id="stopBtn" class="stop-btn">Stop Server</button>
-            <button id="ipBtn" class="info-btn">Get Server IP</button>
+            <div class="controls">
+                <button id="startBtn" class="start-btn">Start Server</button>
+                <button id="stopBtn" class="stop-btn">Stop Server</button>
+                <button id="ipBtn" class="info-btn">Get Server IP</button>
+                <button id="wakeBtn" class="wake-btn">Wake Server</button>
+            </div>
+
+            <div id="status"></div>
+            <div id="serverIp"></div>
         </div>
 
-        <div id="status"></div>
-        <div id="serverIp"></div>
+        <div class="right">
+            <div class="console-container">
+                <div id="console" class="console"></div>
+            </div>
+        </div>
     </div>
 
     <div class="container">
-        <h2>System Statistics</h2>
-        <div id="connectionStatus" class="connection-status disconnected">
-            Disconnected from stats
-        </div>
+        <h2>stats</h2>
+        <div id="connectionStatus"></div>
 
         <div class="stats-grid">
             <div class="stat-card">
@@ -44,7 +52,7 @@
             </div>
 
             <div class="stat-card">
-                <div class="stat-title">CPU Usage per Core</div>
+                <div class="stat-title" id="cpuTotal">System CPU Usage per Core</div>
                 <div id="cpuCores" class="cpu-cores">-</div>
             </div>
 

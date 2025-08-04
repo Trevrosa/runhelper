@@ -43,7 +43,7 @@ pub async fn wake(
 
     let mut mac = [0; 6];
     for (i, hex) in bytes.iter().enumerate() {
-        let Ok(byte) = u8::from_str_radix(hex, 6) else {
+        let Ok(byte) = u8::from_str_radix(hex, 16) else {
             tracing::error!("could not parse {hex} to a byte");
             waking.store(false, Ordering::Release);
             return Err(Status::InternalServerError);
