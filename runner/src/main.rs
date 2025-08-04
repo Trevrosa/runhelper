@@ -84,6 +84,11 @@ async fn main() -> anyhow::Result<()> {
         .with_max_level(Level::DEBUG)
         .init();
 
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() == 3 && args[1] == "--wd" {
+        std::env::set_current_dir(&args[2]).expect("failed to set working dir");
+    }
+
     let (tx, _rx) = broadcast::channel::<Stats>(16);
     let app_state = Arc::new(AppState::new(tx));
 
