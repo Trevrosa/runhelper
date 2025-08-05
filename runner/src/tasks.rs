@@ -108,19 +108,12 @@ pub async fn stats_refresher(app_state: Arc<AppState>) {
 pub async fn console_reader(state: Arc<AppState>, console_stdout: ChildStdout) {
     let tx = &state.console_channel;
     
-    let mut ready = false;
-
     let mut console = BufReader::new(console_stdout).lines();
     let mut log = tokio::io::stdout();
 
     while let Ok(Some(line)) = console.next_line().await {
         let _ = log.write_all(line.as_bytes()).await;
         let _ = log.write_u8(b'\n').await;
-
-        if !ready && line.contains("[minecraft/DedicatedServer]: Done") {
-            ready = true;
-            state.server_ready.store(true, Ordering::Release);
-        }
 
         // hide ips and coords
         let masked = line
