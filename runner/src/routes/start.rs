@@ -1,7 +1,7 @@
 use std::{
     path::{Path, PathBuf},
     process::Stdio,
-    sync::{atomic::Ordering, Arc},
+    sync::{Arc, atomic::Ordering},
 };
 
 use anyhow::anyhow;

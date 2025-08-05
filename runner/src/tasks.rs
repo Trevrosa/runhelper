@@ -53,8 +53,8 @@ pub async fn shutdown(state: Arc<AppState>) {
     let terminate = std::future::pending::<()>();
 
     tokio::select! {
-        _ = ctrl_c => {},
-        _ = terminate => {},
+        () = ctrl_c => {},
+        () = terminate => {},
     }
 
     tracing::info!("shutting down..");
@@ -72,7 +72,7 @@ pub async fn shutdown(state: Arc<AppState>) {
                 tokio::time::sleep(Duration::from_secs(1)).await;
             }
         }
-    };
+    }
 }
 
 /// a background task that refreshes and broadcasts system stats.
@@ -137,6 +137,14 @@ pub async fn console_reader(state: Arc<AppState>, console_stdout: ChildStdout) {
     while let Ok(Some(line)) = console.next_line().await {
         let _ = log.write_all(line.as_bytes()).await;
         let _ = log.write_u8(b'\n').await;
+
+        // its from /list, safe to send raw
+        if line.contains("[minecraft/MinecraftServer]: There are") {
+            if let Err(err) = tx.send(line) {
+                tracing::warn!("failed to broadcast: {err}");
+            }
+            continue;
+        }
 
         // hide ips and coords
         let masked = line
