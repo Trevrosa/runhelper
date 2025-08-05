@@ -40,7 +40,10 @@ pub async fn shutdown(state: Arc<AppState>) {
 
     tracing::info!("shutting down..");
 
-    let mut stdin = state.server_stdin.write().await;
+    let stdin = state.server_stdin.try_write();
+    let Ok(mut stdin) = stdin else {
+        return;
+    };
     if let Some(stdin) = stdin.as_mut() {
         tracing::info!("sending /stop");
         stdin
@@ -48,8 +51,6 @@ pub async fn shutdown(state: Arc<AppState>) {
             .await
             .expect("could not write to server stdin");
     }
-
-    std::process::exit(0);
 }
 
 /// a background task that refreshes and broadcasts system stats.
