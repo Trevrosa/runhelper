@@ -16,3 +16,10 @@ function wsconsole() {
 }
 
 wsconsole();
+
+while (true) {
+  const cmd = prompt("> ");
+  fetch(`http://localhost:4321/exec/${cmd}`).then(async (resp) => {
+    console.debug(await resp.text());
+  });
+}
