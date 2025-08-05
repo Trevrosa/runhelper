@@ -1750,6 +1750,7 @@ dependencies = [
  "sysinfo",
  "tikv-jemallocator",
  "tokio",
+ "tower-http",
  "tracing",
  "tracing-subscriber",
 ]
@@ -2386,6 +2387,7 @@ dependencies = [
  "http-body 1.0.1",
  "iri-string",
  "pin-project-lite",
+ "tokio",
  "tower",
  "tower-layer",
  "tower-service",

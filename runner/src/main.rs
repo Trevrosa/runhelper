@@ -8,6 +8,7 @@ use std::{
         Arc, LazyLock,
         atomic::{AtomicBool, AtomicU32},
     },
+    time::Duration,
 };
 
 use axum::{
@@ -21,6 +22,7 @@ use tokio::{
     process::{ChildStdin, Command},
     sync::{RwLock, broadcast},
 };
+use tower_http::timeout::TimeoutLayer;
 use tracing::Level;
 
 use crate::routes::{console, exec, ip, list, ping, start, stats, stop};
@@ -91,10 +93,10 @@ async fn main() -> anyhow::Result<()> {
         .route("/stats", get(stats))
         .route("/console", get(console))
         .with_state(app_state.clone())
-        .layer(middleware::from_fn(tasks::trace));
+        .layer(middleware::from_fn(tasks::trace))
+        .layer(TimeoutLayer::new(Duration::from_secs(5)));
 
-    tokio::spawn(tasks::shutdown(app_state.clone()));
-    tokio::spawn(tasks::stats_refresher(app_state));
+    tokio::spawn(tasks::stats_refresher(app_state.clone()));
 
     if let Err(err) = dotenvy::dotenv() {
         tracing::warn!("could not load .env: {err}");
@@ -123,7 +125,9 @@ async fn main() -> anyhow::Result<()> {
     }
 
     let listener = TcpListener::bind(ip).await?;
-    axum::serve(listener, app).await?;
+    axum::serve(listener, app)
+        .with_graceful_shutdown(tasks::shutdown(app_state))
+        .await?;
 
     Ok(())
 }

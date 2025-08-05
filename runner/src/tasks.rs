@@ -9,6 +9,7 @@ use sysinfo::{Cpu, MemoryRefreshKind, Pid, ProcessRefreshKind, RefreshKind, Syst
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     process::ChildStdout,
+    signal,
 };
 use tracing::Level;
 
@@ -34,23 +35,40 @@ pub async fn trace(request: Request, next: Next) -> Response {
 
 /// ensures graceful shutdown
 pub async fn shutdown(state: Arc<AppState>) {
-    tokio::signal::ctrl_c()
-        .await
-        .expect("failed to listen to ctrlc");
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
 
     tracing::info!("shutting down..");
 
     let stdin = state.server_stdin.try_write();
-    let Ok(mut stdin) = stdin else {
-        std::process::exit(0);
+    if let Ok(mut stdin) = stdin {
+        if let Some(stdin) = stdin.as_mut() {
+            tracing::info!("sending /stop");
+            stdin
+                .write_all(b"/stop\n")
+                .await
+                .expect("could not write to server stdin");
+        }
     };
-    if let Some(stdin) = stdin.as_mut() {
-        tracing::info!("sending /stop");
-        stdin
-            .write_all(b"/stop\n")
-            .await
-            .expect("could not write to server stdin");
-    }
 }
 
 /// a background task that refreshes and broadcasts system stats.
