@@ -18,7 +18,8 @@ function wsconsole() {
 wsconsole();
 
 while (true) {
-  const cmd = prompt("> ");
+  const cmd = prompt(">");
+  if (!cmd) continue;
   fetch(`http://localhost:4321/exec/${cmd}`).then(async (resp) => {
     console.debug(await resp.text());
   });
