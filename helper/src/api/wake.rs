@@ -1,32 +1,34 @@
-use std::{
-    env,
-    sync::atomic::{AtomicBool, Ordering},
-};
+use std::env;
 
+use reqwest::Client;
 use rocket::{State, get, http::Status};
 use wake_on_lan::MagicPacket;
 
+use crate::{RUNNER_ADDR, UrlExt};
+
 /// wake the runner
 #[get("/wake")]
-pub async fn wake(waking: &State<AtomicBool>) -> (Status, &'static str) {
-    if waking.load(Ordering::Relaxed) {
-        return (Status::TooManyRequests, "already waking");
+pub async fn wake(client: &State<Client>) -> (Status, &'static str) {
+    if client
+        .get(RUNNER_ADDR.join_unchecked("ping"))
+        .send()
+        .await
+        .is_ok()
+    {
+        return (Status::Ok, "already awake!");
     }
-
-    waking.store(true, Ordering::Release);
 
     let Ok(mac) = env::var("PHYS_ADDR") else {
         tracing::error!("no PHYS_ADDR env var.");
-        waking.store(false, Ordering::Release);
         return (Status::InternalServerError, "PHYS_ADDR not set");
     };
+
     let bytes: Vec<_> = mac.split('-').collect();
     if bytes.len() != 6 {
         tracing::error!(
             "mac address invalid, expected 6 bytes but got {}",
             bytes.len()
         );
-        waking.store(false, Ordering::Release);
         return (Status::InternalServerError, "PHYS_ADDR invalid");
     }
 
@@ -34,7 +36,6 @@ pub async fn wake(waking: &State<AtomicBool>) -> (Status, &'static str) {
     for (i, hex) in bytes.iter().enumerate() {
         let Ok(byte) = u8::from_str_radix(hex, 16) else {
             tracing::error!("could not parse {hex} to a byte");
-            waking.store(false, Ordering::Release);
             return (Status::InternalServerError, "PHYS_ADDR invalid");
         };
         mac[i] = byte;
@@ -44,7 +45,6 @@ pub async fn wake(waking: &State<AtomicBool>) -> (Status, &'static str) {
 
     if let Err(err) = magic.send() {
         tracing::warn!("failed to send magic packet: {err}");
-        waking.store(false, Ordering::Release);
         return (Status::InternalServerError, "failed to send magic packet");
     }
 
