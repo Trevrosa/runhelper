@@ -17,10 +17,26 @@ function wsconsole() {
 
 wsconsole();
 
-while (true) {
-  const cmd = prompt(">");
-  if (!cmd) continue;
-  fetch(`http://localhost:4321/exec/${cmd}`).then(async (resp) => {
-    console.debug(await resp.text());
-  });
+async function commandLoop() {
+  while (true) {
+    const cmd = prompt(">");
+    if (!cmd) {
+      // Yield control to allow other async operations
+      await new Promise(resolve => setTimeout(resolve, 0));
+      continue;
+    }
+    
+    try {
+      const resp = await fetch(`http://localhost:4321/exec/${cmd}`);
+      console.debug(await resp.text());
+    } catch (error) {
+      console.error("Error executing command:", error);
+    }
+    
+    // Yield control after each command
+    await new Promise(resolve => setTimeout(resolve, 0));
+  }
 }
+
+wsconsole();
+commandLoop();
