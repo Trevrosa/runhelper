@@ -51,7 +51,7 @@ fn find_forge_args(server_path: &Path) -> anyhow::Result<PathBuf> {
         .join(args_file))
 }
 
-pub async fn run(State(state): State<Arc<AppState>>) -> (StatusCode, &'static str) {
+pub async fn start(State(state): State<Arc<AppState>>) -> (StatusCode, &'static str) {
     if state.server_running.load(Ordering::Relaxed) {
         tracing::warn!("ignoring run request, already running");
         return (StatusCode::TOO_MANY_REQUESTS, "already running..");
