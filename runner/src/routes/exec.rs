@@ -6,6 +6,7 @@ use tokio::io::AsyncWriteExt;
 
 use crate::AppState;
 
+/// NOT meant to be accessible publicly.
 pub async fn exec(
     Path(cmd): Path<String>,
     State(state): State<Arc<AppState>>,

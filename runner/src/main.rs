@@ -86,7 +86,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/stop", get(stop))
         .route("/ip", get(ip))
         .route("/ping", get(ping))
-        .route("/exec", get(exec))
+        .route("/exec/{cmd}", get(exec))
         .route("/stats", get(stats))
         .route("/console", get(console))
         .with_state(app_state.clone())
