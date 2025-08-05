@@ -2,20 +2,17 @@
 macro_rules! make_forward {
     ($name:ident, $route:expr) => {
         pub mod $name {
-            use std::sync::Arc;
-
-            use reqwest::{Client, Url};
+            use reqwest::Client;
             use rocket::{State, get, http::Status};
 
-            use crate::UrlExt;
+            use crate::{UrlExt, RUNNER_ADDR};
 
             #[get($route)]
             pub async fn $name(
                 client: &State<Client>,
-                runner_addr: &State<Arc<Url>>,
             ) -> Result<(Status, String), Status> {
                 let $name = client
-                    .get(runner_addr.join_unchecked(stringify!($name)))
+                    .get(RUNNER_ADDR.join_unchecked(stringify!($name)))
                     .send()
                     .await
                     .map_err(|_| Status::ServiceUnavailable)?;
