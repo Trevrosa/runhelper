@@ -8,7 +8,7 @@ use crate::AppState;
 
 pub async fn stop(State(state): State<Arc<AppState>>) -> (StatusCode, &'static str) {
     if !state.server_running.load(Ordering::Relaxed) {
-        return (StatusCode::OK, "already stopped!");
+        return (StatusCode::TOO_MANY_REQUESTS, "already stopped!");
     }
 
     let mut stdin = state.server_stdin.write().await;

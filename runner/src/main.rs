@@ -1,4 +1,4 @@
-mod helpers;
+mod tasks;
 mod routes;
 
 use std::{
@@ -38,9 +38,10 @@ struct AppState {
     client: reqwest::Client,
     stats_channel: broadcast::Sender<Stats>,
     console_channel: broadcast::Sender<String>,
-    // 0 if server is not running.
+    /// 0 if server is not running.
     server_pid: AtomicU32,
     server_running: AtomicBool,
+    server_ready: AtomicBool,
     server_stdin: RwLock<Option<ChildStdin>>,
 }
 
@@ -51,6 +52,7 @@ impl AppState {
             stats_channel: stats,
             console_channel: console,
             server_running: AtomicBool::new(false),
+            server_ready: AtomicBool::new(false),
             server_pid: AtomicU32::new(0),
             server_stdin: RwLock::new(None),
         }
@@ -90,10 +92,10 @@ async fn main() -> anyhow::Result<()> {
         .route("/stats", get(stats))
         .route("/console", get(console))
         .with_state(app_state.clone())
-        .layer(middleware::from_fn(helpers::trace));
+        .layer(middleware::from_fn(tasks::trace));
 
-    tokio::spawn(helpers::shutdown(app_state.clone()));
-    tokio::spawn(helpers::stats_refresher(app_state.clone()));
+    tokio::spawn(tasks::shutdown(app_state.clone()));
+    tokio::spawn(tasks::stats_refresher(app_state));
 
     if let Err(err) = dotenvy::dotenv() {
         tracing::warn!("could not load .env: {err}");
