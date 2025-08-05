@@ -6,7 +6,7 @@ use std::{
     path::PathBuf,
     sync::{
         Arc, LazyLock,
-        atomic::{AtomicBool, AtomicU32, Ordering},
+        atomic::{AtomicBool, AtomicU32},
     },
     time::Duration,
 };
@@ -44,7 +44,6 @@ struct AppState {
     server_pid: AtomicU32,
     server_running: AtomicBool,
     server_stdin: RwLock<Option<ChildStdin>>,
-    shutdown: AtomicBool,
 }
 
 impl AppState {
@@ -56,7 +55,6 @@ impl AppState {
             server_running: AtomicBool::new(false),
             server_pid: AtomicU32::new(0),
             server_stdin: RwLock::new(None),
-            shutdown: AtomicBool::new(false),
         }
     }
 }
@@ -130,8 +128,6 @@ async fn main() -> anyhow::Result<()> {
     axum::serve(listener, app)
         .with_graceful_shutdown(tasks::shutdown(app_state.clone()))
         .await?;
-
-    app_state.shutdown.store(true, Ordering::Release);
 
     Ok(())
 }

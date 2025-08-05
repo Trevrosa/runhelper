@@ -132,9 +132,7 @@ pub async fn start(State(state): State<Arc<AppState>>) -> (StatusCode, &'static 
                 if let Err(err) = child.wait().await {
                     tracing::warn!("could not wait for server exit: {err}");
                 }
-                if state.shutdown.load(Ordering::Relaxed) {
-                    std::process::exit(0);
-                }
+                state.server_running.store(false, Ordering::Release);
             });
         }
         ServerType::Paper | ServerType::Vanilla => {

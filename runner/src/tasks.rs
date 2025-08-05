@@ -67,6 +67,10 @@ pub async fn shutdown(state: Arc<AppState>) {
                 .write_all(b"/stop\n")
                 .await
                 .expect("could not write to server stdin");
+            while state.server_running.load(Ordering::Relaxed) {
+                tracing::debug!("waiting for server to stop");
+                tokio::time::sleep(Duration::from_secs(1)).await;
+            }
         }
     };
 }
