@@ -10,6 +10,9 @@ pub use stats::stats;
 mod ip;
 pub use ip::ip;
 
+mod exec;
+pub use exec::exec;
+
 mod ping;
 pub use ping::ping;
 

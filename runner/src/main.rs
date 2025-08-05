@@ -23,7 +23,7 @@ use tokio::{
 };
 use tracing::Level;
 
-use crate::routes::{console, ip, ping, run, stats, stop};
+use crate::routes::{console, exec, ip, ping, start, stats, stop};
 
 #[cfg(not(target_env = "msvc"))]
 #[global_allocator]
@@ -82,13 +82,13 @@ async fn main() -> anyhow::Result<()> {
     let app_state = Arc::new(AppState::new(stats_tx, console_tx));
 
     let app = Router::new()
-        .route("/run", get(run))
-        .route("/start", get(run))
+        .route("/start", get(start))
         .route("/stop", get(stop))
-        .route("/stats", get(stats))
-        .route("/console", get(console))
         .route("/ip", get(ip))
         .route("/ping", get(ping))
+        .route("/exec", get(exec))
+        .route("/stats", get(stats))
+        .route("/console", get(console))
         .with_state(app_state.clone())
         .layer(middleware::from_fn(helpers::trace));
 
