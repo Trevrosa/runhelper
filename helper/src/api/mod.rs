@@ -5,12 +5,10 @@ macro_rules! make_forward {
             use reqwest::Client;
             use rocket::{State, get, http::Status};
 
-            use crate::{UrlExt, RUNNER_ADDR};
+            use crate::{RUNNER_ADDR, UrlExt};
 
             #[get($route)]
-            pub async fn $name(
-                client: &State<Client>,
-            ) -> Result<(Status, String), Status> {
+            pub async fn $name(client: &State<Client>) -> Result<(Status, String), Status> {
                 let $name = client
                     .get(RUNNER_ADDR.join_unchecked(stringify!($name)))
                     .send()

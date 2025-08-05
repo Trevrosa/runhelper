@@ -6,7 +6,7 @@ use rocket::{
     tokio::{self, sync::broadcast::Sender},
 };
 
-use crate::{UrlExt, RUNNER_ADDR};
+use crate::{RUNNER_ADDR, UrlExt};
 
 const WS_TIMEOUT: Duration = Duration::from_secs(2);
 

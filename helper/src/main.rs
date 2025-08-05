@@ -21,7 +21,10 @@ use rocket::{
 };
 
 use crate::{
-    api::{console::console, ip::ip, list::list, ping::ping, start::start, stats::stats, stop::stop, wake::wake},
+    api::{
+        console::console, ip::ip, list::list, ping::ping, start::start, stats::stats, stop::stop,
+        wake::wake,
+    },
     tasks::{console_helper, stats_helper},
 };
 
@@ -77,7 +80,10 @@ async fn main() -> Result<(), rocket::Error> {
 
     let _ = rocket::custom(config)
         .mount("/", FileServer::from("./static"))
-        .mount("/api", routes![ip, start, stop, ping, stats, console, wake, list])
+        .mount(
+            "/api",
+            routes![ip, start, stop, ping, stats, console, wake, list],
+        )
         .manage(client)
         .manage(stats_tx)
         .manage(console_tx)

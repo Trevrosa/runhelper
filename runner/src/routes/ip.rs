@@ -15,7 +15,10 @@ pub async fn ip(State(state): State<Arc<AppState>>) -> Result<String, (StatusCod
 
     let ip = resp.text().await;
     let Ok(ip) = ip else {
-        return Err((StatusCode::INTERNAL_SERVER_ERROR, "failed to parse ip api result"));
+        return Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "failed to parse ip api result",
+        ));
     };
 
     Ok(ip)

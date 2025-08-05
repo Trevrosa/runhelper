@@ -21,6 +21,7 @@ pub async fn stop(State(state): State<Arc<AppState>>) -> (StatusCode, &'static s
                 "failed to turn off server",
             )
         } else {
+            state.server_running.store(false, Ordering::Release);
             (StatusCode::OK, "turned off!")
         }
     } else {

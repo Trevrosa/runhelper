@@ -1,5 +1,5 @@
-mod tasks;
 mod routes;
+mod tasks;
 
 use std::{
     net::{Ipv4Addr, SocketAddrV4},

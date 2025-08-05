@@ -107,7 +107,7 @@ pub async fn stats_refresher(app_state: Arc<AppState>) {
 /// a background task that reads the stdout of the server (if running)
 pub async fn console_reader(state: Arc<AppState>, console_stdout: ChildStdout) {
     let tx = &state.console_channel;
-    
+
     let mut console = BufReader::new(console_stdout).lines();
     let mut log = tokio::io::stdout();
 
