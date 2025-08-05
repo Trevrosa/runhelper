@@ -1,7 +1,7 @@
 use std::{
     path::{Path, PathBuf},
     process::Stdio,
-    sync::{Arc, atomic::Ordering},
+    sync::{atomic::Ordering, Arc},
 };
 
 use anyhow::anyhow;
@@ -123,7 +123,7 @@ pub async fn start(State(state): State<Arc<AppState>>) -> (StatusCode, &'static 
             }
 
             if let Some(stdout) = child.stdout.take() {
-                tokio::spawn(tasks::console_reader(state, stdout));
+                tokio::spawn(tasks::console_reader(state.clone(), stdout));
             } else {
                 tracing::warn!("could not get server stdout");
             }
@@ -132,7 +132,9 @@ pub async fn start(State(state): State<Arc<AppState>>) -> (StatusCode, &'static 
                 if let Err(err) = child.wait().await {
                     tracing::warn!("could not wait for server exit: {err}");
                 }
-                std::process::exit(0);
+                if state.shutdown.load(Ordering::Relaxed) {
+                    std::process::exit(0);
+                }
             });
         }
         ServerType::Paper | ServerType::Vanilla => {
