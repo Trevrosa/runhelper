@@ -42,7 +42,7 @@ pub async fn shutdown(state: Arc<AppState>) {
 
     let stdin = state.server_stdin.try_write();
     let Ok(mut stdin) = stdin else {
-        return;
+        std::process::exit(0);
     };
     if let Some(stdin) = stdin.as_mut() {
         tracing::info!("sending /stop");

@@ -106,7 +106,7 @@ pub async fn start(State(state): State<Arc<AppState>>) -> (StatusCode, &'static 
                 .spawn();
             let Ok(mut child) = child else {
                 state.server_running.store(false, Ordering::Release);
-                tracing::error!("could not {}", child.unwrap_err());
+                tracing::error!("could not start server: {}", child.unwrap_err());
                 return (StatusCode::INTERNAL_SERVER_ERROR, "failed to run server");
             };
 
@@ -127,6 +127,13 @@ pub async fn start(State(state): State<Arc<AppState>>) -> (StatusCode, &'static 
             } else {
                 tracing::warn!("could not get server stdout");
             }
+
+            tokio::spawn(async move {
+                if let Err(err) = child.wait().await {
+                    tracing::warn!("could not wait for server exit: {err}");
+                }
+                std::process::exit(0);
+            });
         }
         ServerType::Paper | ServerType::Vanilla => {
             todo!()
