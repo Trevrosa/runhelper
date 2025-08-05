@@ -461,7 +461,7 @@ async function makeAuthenticatedRequest(url, passwordKey) {
 
   const response = await fetch(url, {
     headers: {
-      Authorization: `Bearer ${password}`,
+      token: password,
     },
   });
 
