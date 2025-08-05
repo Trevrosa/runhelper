@@ -17,11 +17,11 @@ impl<'r> FromRequest<'r> for BasicAuth {
     type Error = &'static str;
 
     async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
-        let token = req.headers().get_one("token");
+        let token = req.headers().get_one("Authorization");
 
         match token {
             Some(token) => {
-                if token == BASIC_TOKEN {
+                if token.contains(BASIC_TOKEN) {
                     Outcome::Success(Self(()))
                 } else {
                     Outcome::Error((Status::Unauthorized, "failed, not authorized"))
@@ -39,11 +39,11 @@ impl<'r> FromRequest<'r> for StopAuth {
     type Error = &'static str;
 
     async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
-        let token = req.headers().get_one("token");
+        let token = req.headers().get_one("Authorization");
 
         match token {
             Some(token) => {
-                if token == STOP_TOKEN {
+                if token.contains(STOP_TOKEN) {
                     Outcome::Success(Self(()))
                 } else {
                     Outcome::Error((Status::Unauthorized, "failed, not authorized"))
