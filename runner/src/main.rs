@@ -23,7 +23,7 @@ use tokio::{
 };
 use tracing::Level;
 
-use crate::routes::{console, exec, ip, ping, start, stats, stop};
+use crate::routes::{console, exec, ip, list, ping, start, stats, stop};
 
 #[cfg(not(target_env = "msvc"))]
 #[global_allocator]
@@ -41,7 +41,6 @@ struct AppState {
     /// 0 if server is not running.
     server_pid: AtomicU32,
     server_running: AtomicBool,
-    server_ready: AtomicBool,
     server_stdin: RwLock<Option<ChildStdin>>,
 }
 
@@ -52,7 +51,6 @@ impl AppState {
             stats_channel: stats,
             console_channel: console,
             server_running: AtomicBool::new(false),
-            server_ready: AtomicBool::new(false),
             server_pid: AtomicU32::new(0),
             server_stdin: RwLock::new(None),
         }
@@ -88,6 +86,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/stop", get(stop))
         .route("/ip", get(ip))
         .route("/ping", get(ping))
+        .route("/list", get(list))
         .route("/exec/{*cmd}", get(exec))
         .route("/stats", get(stats))
         .route("/console", get(console))
