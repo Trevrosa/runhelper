@@ -1,4 +1,5 @@
 mod api;
+mod file_server;
 mod tasks;
 
 use std::{
@@ -10,21 +11,18 @@ use std::{
 use anyhow::Context;
 use reqwest::Url;
 use reqwest_websocket::Bytes;
-use rocket::{
-    Config,
-    fs::FileServer,
-    routes,
-    tokio::{
-        self,
-        sync::broadcast::{self},
-    },
+use rocket::tokio::{
+    self,
+    sync::broadcast::{self},
 };
+use rocket::{Config, routes};
 
 use crate::{
     api::{
         console::console, ip::ip, list::list, ping::ping, start::start, stats::stats, stop::stop,
         wake::wake,
     },
+    file_server::BrServer,
     tasks::{console_helper, stats_helper},
 };
 
@@ -79,7 +77,7 @@ async fn main() -> Result<(), rocket::Error> {
     tokio::spawn(console_helper(state.0, state.1));
 
     let _ = rocket::custom(config)
-        .mount("/", FileServer::from("./static"))
+        .mount("/", BrServer::new("./static"))
         .mount(
             "/api",
             routes![ip, start, stop, ping, stats, console, wake, list],
