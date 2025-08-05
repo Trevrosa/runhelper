@@ -104,9 +104,6 @@ pub async fn stats_refresher(app_state: Arc<AppState>) {
     }
 }
 
-/// when the sender is done, it sends this message.
-pub const CONSOLE_CHANNEL_STOP_SIGNAL: &str = "CHANNELSTOPSTOPSTOP";
-
 /// a background task that reads the stdout of the server (if running)
 pub async fn console_reader(state: Arc<AppState>, console_stdout: ChildStdout) {
     let tx = &state.console_channel;
@@ -128,9 +125,6 @@ pub async fn console_reader(state: Arc<AppState>, console_stdout: ChildStdout) {
     }
 
     tracing::warn!("server stdout closed");
-    if let Err(err) = tx.send(CONSOLE_CHANNEL_STOP_SIGNAL.to_string()) {
-        tracing::warn!("failed to send stop signal: {err}");
-    }
 
     state.server_pid.store(0, Ordering::Release);
     state.server_running.store(false, Ordering::Release);
