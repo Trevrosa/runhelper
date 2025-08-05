@@ -1,36 +1,11 @@
-// $route is required because the #[get] macro expects a literal, meaning i cant use stringify!($route) or any macro in its input.
-macro_rules! make_forward {
-    ($name:ident, $route:expr) => {
-        pub mod $name {
-            use reqwest::Client;
-            use rocket::{State, get, http::Status};
+#[macro_use]
+mod macros;
 
-            use crate::{RUNNER_ADDR, UrlExt};
+make_forward!(start, "/start", crate::authorized::BasicAuth);
 
-            #[get($route)]
-            pub async fn $name(client: &State<Client>) -> Result<(Status, String), Status> {
-                let $name = client
-                    .get(RUNNER_ADDR.join_unchecked(stringify!($name)))
-                    .send()
-                    .await
-                    .map_err(|_| Status::ServiceUnavailable)?;
-                let status = $name.status();
-                let $name = $name
-                    .text()
-                    .await
-                    .map_err(|_| Status::InternalServerError)?;
+make_forward!(ip, "/ip", crate::authorized::BasicAuth);
 
-                Ok((Status::new(status.as_u16()), $name))
-            }
-        }
-    };
-}
-
-make_forward!(start, "/start");
-
-make_forward!(stop, "/stop");
-
-make_forward!(ip, "/ip");
+make_forward!(stop, "/stop", crate::authorized::StopAuth);
 
 make_forward!(ping, "/ping");
 

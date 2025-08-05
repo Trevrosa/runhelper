@@ -1,4 +1,5 @@
 mod api;
+mod authorized;
 mod file_server;
 mod tasks;
 

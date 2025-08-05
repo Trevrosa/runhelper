@@ -25,89 +25,127 @@ function formatPercent(value) {
 
 // API calls
 async function startServer() {
-  try {
-    startBtn.disabled = true;
-    const response = await fetch("/api/start", {
-      signal: AbortSignal.timeout(5000),
-    });
-    const text = await response.text();
+  await executeWithAuth(async () => {
+    try {
+      startBtn.disabled = true;
+      const response = await makeAuthenticatedRequest(
+        "/api/start",
+        AUTH_PASSWORD_KEY,
+        {
+          signal: AbortSignal.timeout(5000),
+        }
+      );
+      const text = await response.text();
 
-    if (response.ok) {
-      showStatus(`Server started: ${text}`);
-    } else if (response.status == 503) {
-      showStatus("Failed to start server: server unavailable", true);
-    } else {
-      showStatus(`Failed to start server: ${text}`, true);
+      if (response.ok) {
+        showStatus(`Server started: ${text}`);
+      } else if (response.status == 503) {
+        showStatus("Failed to start server: server unavailable", true);
+      } else {
+        showStatus(`Failed to start server: ${text}`, true);
+      }
+    } catch (error) {
+      if (error.message === "INVALID_PASSWORD") {
+        throw error;
+      }
+      showStatus(`Error starting server: ${error.message}`, true);
+    } finally {
+      startBtn.disabled = false;
     }
-  } catch (error) {
-    showStatus(`Error starting server: ${error.message}`, true);
-  } finally {
-    startBtn.disabled = false;
-  }
+  }, AUTH_PASSWORD_KEY);
 }
 
 async function stopServer() {
-  try {
-    stopBtn.disabled = true;
-    const response = await fetch("/api/stop", {
-      signal: AbortSignal.timeout(5000),
-    });
-    const text = await response.text();
+  await executeWithAuth(
+    async () => {
+      try {
+        stopBtn.disabled = true;
+        const response = await makeAuthenticatedRequest(
+          "/api/stop",
+          STOP_PASSWORD_KEY,
+          {
+            signal: AbortSignal.timeout(5000),
+          }
+        );
+        const text = await response.text();
 
-    if (response.ok) {
-      showStatus(`Server stopped: ${text}`);
-    } else if (response.status == 503) {
-      showStatus("Failed to stop server: server unavailable", true);
-    } else {
-      showStatus(`Failed to stop server: ${text}`, true);
-    }
-  } catch (error) {
-    showStatus(`Error stopping server: ${error.message}`, true);
-  } finally {
-    stopBtn.disabled = false;
-  }
+        if (response.ok) {
+          showStatus(`Server stopped: ${text}`);
+        } else if (response.status == 503) {
+          showStatus("Failed to stop server: server unavailable", true);
+        } else {
+          showStatus(`Failed to stop server: ${text}`, true);
+        }
+      } catch (error) {
+        if (error.message === "INVALID_PASSWORD") {
+          throw error;
+        }
+        showStatus(`Error stopping server: ${error.message}`, true);
+      } finally {
+        stopBtn.disabled = false;
+      }
+    },
+    STOP_PASSWORD_KEY,
+    "Password Required - Stop Server"
+  );
 }
 
 async function wakeServer() {
-  try {
-    wakeBtn.disabled = true;
+  await executeWithAuth(async () => {
+    try {
+      wakeBtn.disabled = true;
+      const response = await makeAuthenticatedRequest(
+        "/api/wake",
+        AUTH_PASSWORD_KEY,
+        {
+          signal: AbortSignal.timeout(5000),
+        }
+      );
+      const text = await response.text();
 
-    const response = await fetch("/api/wake", {
-      signal: AbortSignal.timeout(5000),
-    });
-    const text = await response.text();
-
-    if (response.ok) {
-      showStatus(`Woke: ${text}`);
-    } else if (response.status == 503) {
-      showStatus("Failed to wake server: server unavailable", true);
-    } else {
-      showStatus(`Failed to wake server: ${text}`, true);
+      if (response.ok) {
+        showStatus(`Woke: ${text}`);
+      } else if (response.status == 503) {
+        showStatus("Failed to wake server: server unavailable", true);
+      } else {
+        showStatus(`Failed to wake server: ${text}`, true);
+      }
+    } catch (error) {
+      if (error.message === "INVALID_PASSWORD") {
+        throw error;
+      }
+      showStatus(`Error waking server: ${error.message}`, true);
+    } finally {
+      wakeBtn.disabled = false;
     }
-  } catch (error) {
-    showStatus(`Error waking server: ${error.message}`, true);
-  } finally {
-    wakeBtn.disabled = false;
-  }
+  }, AUTH_PASSWORD_KEY);
 }
 
 async function getServerIp() {
-  try {
-    ipBtn.disabled = true;
-    const response = await fetch("/api/ip");
+  await executeWithAuth(async () => {
+    try {
+      ipBtn.disabled = true;
+      const response = await makeAuthenticatedRequest(
+        "/api/ip",
+        AUTH_PASSWORD_KEY
+      );
 
-    if (response.ok) {
-      const ip = await response.text();
-      serverIp.innerHTML = `<div class="status success"><span class="noselect">Server IP: </span>${ip.trim()}</div>`;
-    } else {
-      const error = await response.text();
-      serverIp.innerHTML = `<div class="status error">Failed to get IP: ${error}</div>`;
+      if (response.ok) {
+        const ip = await response.text();
+        serverIp.innerHTML = `<div class="status success"><span class="noselect">Server IP: </span>${ip.trim()}</div>`;
+      } else {
+        const error = await response.text();
+        serverIp.innerHTML = `<div class="status error">Failed to get IP: ${error}</div>`;
+      }
+    } catch (error) {
+      if (error.message === "INVALID_PASSWORD") {
+        throw error;
+      }
+      serverIp.innerHTML = `<div class="status error">Error getting IP: ${error.message}</div>`;
+    } finally {
+      ipBtn.disabled = false;
     }
-  } catch (error) {
-    serverIp.innerHTML = `<div class="status error">Error getting IP: ${error.message}</div>`;
-  } finally {
-    ipBtn.disabled = false;
-  }
+  }, AUTH_PASSWORD_KEY);
 }
 
 const statsTimeout = 1000;
@@ -173,6 +211,8 @@ function connectStats() {
     setTimeout(connectStats, statsTimeout);
   }
 }
+
+connectStats();
 
 // Stats elements
 const systemRam = document.getElementById("systemRam");
@@ -337,5 +377,140 @@ function connectConsole() {
   }
 }
 
-connectStats();
 connectConsole();
+
+// Password management
+const AUTH_PASSWORD_KEY = "auth_password";
+const STOP_PASSWORD_KEY = "stop_password";
+
+function getStoredPassword(key) {
+  return localStorage.getItem(key);
+}
+
+function setStoredPassword(key, password) {
+  localStorage.setItem(key, password);
+}
+
+function clearStoredPassword(key) {
+  localStorage.removeItem(key);
+}
+
+function createPasswordPopup(title, onSubmit, onCancel) {
+  // Create overlay
+  const overlay = document.createElement("div");
+  overlay.className = "password-overlay";
+
+  // Create popup
+  const popup = document.createElement("div");
+  popup.className = "password-popup";
+
+  popup.innerHTML = `
+    <h3>${title}</h3>
+    <input type="password" id="passwordInput" placeholder="Enter password">
+    <div class="button-group">
+      <button id="cancelBtn" class="cancel-btn">Cancel</button>
+      <button id="submitBtn" class="submit-btn">Submit</button>
+    </div>
+  `;
+
+  overlay.appendChild(popup);
+  document.body.appendChild(overlay);
+
+  const passwordInput = popup.querySelector("#passwordInput");
+  const submitBtn = popup.querySelector("#submitBtn");
+  const cancelBtn = popup.querySelector("#cancelBtn");
+
+  // Focus input
+  passwordInput.focus();
+
+  // Handle submit
+  const handleSubmit = () => {
+    const password = passwordInput.value.trim();
+    if (password) {
+      document.body.removeChild(overlay);
+      onSubmit(password);
+    }
+  };
+
+  // Handle cancel
+  const handleCancel = () => {
+    document.body.removeChild(overlay);
+    if (onCancel) onCancel();
+  };
+
+  // Event listeners
+  submitBtn.onclick = handleSubmit;
+  cancelBtn.onclick = handleCancel;
+  passwordInput.onkeypress = (e) => {
+    if (e.key === "Enter") handleSubmit();
+    if (e.key === "Escape") handleCancel();
+  };
+
+  // Close on overlay click
+  overlay.onclick = (e) => {
+    if (e.target === overlay) handleCancel();
+  };
+}
+
+async function makeAuthenticatedRequest(url, passwordKey) {
+  const password = getStoredPassword(passwordKey);
+
+  if (!password) {
+    throw new Error("NO_PASSWORD");
+  }
+
+  const response = await fetch(url, {
+    headers: {
+      token: password,
+    },
+  });
+
+  // If unauthorized, clear stored password
+  if (response.status === 401) {
+    clearStoredPassword(passwordKey);
+    throw new Error("INVALID_PASSWORD");
+  }
+
+  return response;
+}
+
+async function executeWithAuth(action, passwordKey) {
+  try {
+    // Try with stored password first
+    const storedPassword = getStoredPassword(passwordKey);
+    if (storedPassword) {
+      try {
+        await action();
+        return;
+      } catch (error) {
+        if (error.message === "INVALID_PASSWORD") {
+          // Password is invalid, continue to prompt
+        } else {
+          throw error;
+        }
+      }
+    }
+
+    // Prompt for password
+    createPasswordPopup("need password", async (password) => {
+      try {
+        setStoredPassword(passwordKey, password);
+        await action();
+      } catch (error) {
+        if (error.message === "INVALID_PASSWORD") {
+          clearStoredPassword(passwordKey);
+          showStatus("invalid password..", true);
+        } else {
+          throw error;
+        }
+      }
+    });
+  } catch (error) {
+    if (
+      error.message !== "NO_PASSWORD" &&
+      error.message !== "INVALID_PASSWORD"
+    ) {
+      throw error;
+    }
+  }
+}

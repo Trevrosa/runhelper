@@ -4,11 +4,11 @@ use reqwest::Client;
 use rocket::{State, get, http::Status};
 use wake_on_lan::MagicPacket;
 
-use crate::{RUNNER_ADDR, UrlExt};
+use crate::{RUNNER_ADDR, UrlExt, authorized::BasicAuth};
 
 /// wake the runner
 #[get("/wake")]
-pub async fn wake(client: &State<Client>) -> (Status, &'static str) {
+pub async fn wake(_auth: BasicAuth, client: &State<Client>) -> (Status, &'static str) {
     if client
         .get(RUNNER_ADDR.join_unchecked("ping"))
         .send()
