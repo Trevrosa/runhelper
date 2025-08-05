@@ -5,10 +5,10 @@ use rocket::{
 };
 
 /// allows access to /start, /ip, /wake
-const BASIC_TOKEN: &str = include_str!("basic_token");
+const BASIC_TOKEN: &str = include_str!("../basic_token");
 
 /// allows access to /stop
-const STOP_TOKEN: &str = include_str!("stop_token");
+const STOP_TOKEN: &str = include_str!("../stop_token");
 
 pub struct BasicAuth(());
 
