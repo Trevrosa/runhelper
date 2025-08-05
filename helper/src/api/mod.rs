@@ -28,13 +28,15 @@ macro_rules! make_forward {
     };
 }
 
-make_forward!(run, "/run");
+make_forward!(start, "/start");
 
 make_forward!(stop, "/stop");
 
 make_forward!(ip, "/ip");
 
 make_forward!(ping, "/ping");
+
+make_forward!(list, "/list");
 
 pub mod stats;
 

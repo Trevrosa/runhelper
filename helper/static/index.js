@@ -27,11 +27,15 @@ function formatPercent(value) {
 async function startServer() {
   try {
     startBtn.disabled = true;
-    const response = await fetch("/api/run");
+    const response = await fetch("/api/start", {
+      signal: AbortSignal.timeout(5000),
+    });
     const text = await response.text();
 
     if (response.ok) {
       showStatus(`Server started: ${text}`);
+    } else if (response.status == 503) {
+      showStatus("Failed to start server: server unavailable", true);
     } else {
       showStatus(`Failed to start server: ${text}`, true);
     }
@@ -45,11 +49,15 @@ async function startServer() {
 async function stopServer() {
   try {
     stopBtn.disabled = true;
-    const response = await fetch("/api/stop");
+    const response = await fetch("/api/stop", {
+      signal: AbortSignal.timeout(5000),
+    });
     const text = await response.text();
 
     if (response.ok) {
       showStatus(`Server stopped: ${text}`);
+    } else if (response.status == 503) {
+      showStatus("Failed to stop server: server unavailable", true);
     } else {
       showStatus(`Failed to stop server: ${text}`, true);
     }
@@ -57,6 +65,29 @@ async function stopServer() {
     showStatus(`Error stopping server: ${error.message}`, true);
   } finally {
     stopBtn.disabled = false;
+  }
+}
+
+async function wakeServer() {
+  try {
+    wakeBtn.disabled = true;
+
+    const response = await fetch("/api/wake", {
+      signal: AbortSignal.timeout(5000),
+    });
+    const text = await response.text();
+
+    if (response.ok) {
+      showStatus(`Woke: ${text}`);
+    } else if (response.status == 503) {
+      showStatus("Failed to wake server: server unavailable", true);
+    } else {
+      showStatus(`Failed to wake server: ${text}`, true);
+    }
+  } catch (error) {
+    showStatus(`Error waking server: ${error.message}`, true);
+  } finally {
+    wakeBtn.disabled = false;
   }
 }
 
@@ -76,37 +107,6 @@ async function getServerIp() {
     serverIp.innerHTML = `<div class="status error">Error getting IP: ${error.message}</div>`;
   } finally {
     ipBtn.disabled = false;
-  }
-}
-
-async function wakeServer() {
-  try {
-    wakeBtn.disabled = true;
-    wakeBtn.style.backgroundColor = "#ff9800"; // Orange color while waking
-    wakeBtn.innerText = "Waking...";
-
-    const response = await fetch("/api/wake");
-    const text = await response.text();
-
-    if (response.ok) {
-      showStatus(`Wake successful: ${text}`);
-      wakeBtn.style.backgroundColor = "#4CAF50"; // Green on success
-      wakeBtn.innerText = "Wake Server";
-    } else {
-      showStatus(`Failed to wake server: ${text}`, true);
-      wakeBtn.style.backgroundColor = "#f44336"; // Red on failure
-      wakeBtn.innerText = "Wake Server";
-    }
-  } catch (error) {
-    showStatus(`Error waking server: ${error.message}`, true);
-    wakeBtn.style.backgroundColor = "#f44336"; // Red on error
-    wakeBtn.innerText = "Wake Server";
-  } finally {
-    setTimeout(() => {
-      wakeBtn.disabled = false;
-      wakeBtn.style.backgroundColor = ""; // Reset to default
-      wakeBtn.innerText = "Wake Server";
-    }, 2000); // Keep the status color for 2 seconds
   }
 }
 
@@ -313,8 +313,9 @@ function connectConsole() {
   try {
     consoleSocket = new WebSocket("/api/console");
 
-    consoleSocket.onopen = () => {
+    consoleSocket.onopen = async () => {
       addConsoleMessage("connected to console");
+      await fetch("/api/list");
     };
 
     consoleSocket.onclose = () => {

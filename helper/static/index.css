@@ -16,12 +16,8 @@ body {
 
 .container.split {
     min-height: 240px;
-}
-
-.split {
     display: flex;
     gap: 10px;
-    width: 100%;
 }
 
 .left {
@@ -95,7 +91,7 @@ button {
 }
 
 .console::-webkit-scrollbar {
-    width: 8px;
+    width: 7px;
 }
 
 .console::-webkit-scrollbar-track {
@@ -240,7 +236,8 @@ button:disabled {
     border-radius: 3px;
     font-size: 0.8em;
     width: fit-content;
-    flex-shrink: 0; /* Prevents cores from shrinking */
+    flex-shrink: 0;
+    /* Prevents cores from shrinking */
     text-align: center;
 }
 

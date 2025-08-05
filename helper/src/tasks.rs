@@ -20,14 +20,14 @@ pub async fn stats_helper(client: reqwest::Client, tx: Sender<Bytes>) {
             .send()
             .await;
         let Ok(resp) = resp else {
-            tracing::warn!("failed to send websocket request, reconnecting in {WS_TIMEOUT:?}");
+            tracing::trace!("failed to send websocket request, reconnecting in {WS_TIMEOUT:?}");
             tokio::time::sleep(WS_TIMEOUT).await;
             continue;
         };
 
         let runner_ws = resp.into_websocket().await;
         let Ok(mut runner_ws) = runner_ws else {
-            tracing::warn!("failed to upgrade to websocket, reconnecting in {WS_TIMEOUT:?}");
+            tracing::trace!("failed to upgrade to websocket, reconnecting in {WS_TIMEOUT:?}");
             tokio::time::sleep(WS_TIMEOUT).await;
             continue;
         };
@@ -67,14 +67,14 @@ pub async fn console_helper(client: reqwest::Client, tx: Sender<String>) {
             .send()
             .await;
         let Ok(resp) = resp else {
-            tracing::warn!("failed to send websocket request, reconnecting in {WS_TIMEOUT:?}");
+            tracing::trace!("failed to send websocket request, reconnecting in {WS_TIMEOUT:?}");
             tokio::time::sleep(WS_TIMEOUT).await;
             continue;
         };
 
         let runner_ws = resp.into_websocket().await;
         let Ok(mut runner_ws) = runner_ws else {
-            tracing::warn!("failed to upgrade to websocket, reconnecting in {WS_TIMEOUT:?}");
+            tracing::trace!("failed to upgrade to websocket, reconnecting in {WS_TIMEOUT:?}");
             tokio::time::sleep(WS_TIMEOUT).await;
             continue;
         };
