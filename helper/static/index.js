@@ -380,7 +380,10 @@ function connectConsole() {
         await fetch("/api/list");
         consoleFirstConnect = false;
       } else {
-        updateConsoleStatus("Reconnected to console", "connected");
+        updateConsoleStatus("Reconnected!", "connected");
+        setTimeout(() => {
+          updateConsoleStatus("Connected to console", "connected");
+        }, 1000);
       }
     };
 
