@@ -61,8 +61,6 @@ pub async fn shutdown(state: Arc<AppState>) {
 
     tracing::info!("shutting down..");
 
-    dbg!(&state);
-
     let stdin = state.server_stdin.try_write();
     if let Ok(mut stdin) = stdin {
         if let Some(stdin) = stdin.as_mut() {
