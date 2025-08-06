@@ -2,11 +2,12 @@ mod routes;
 mod tasks;
 
 use std::{
+    fmt::Debug,
     net::{Ipv4Addr, SocketAddrV4},
     path::PathBuf,
     sync::{
         Arc, LazyLock,
-        atomic::{AtomicBool, AtomicU32},
+        atomic::{AtomicBool, AtomicU32, Ordering},
     },
     time::Duration,
 };
@@ -35,15 +36,30 @@ static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-#[derive(Debug)]
 struct AppState {
     client: reqwest::Client,
     stats_channel: broadcast::Sender<Stats>,
     console_channel: broadcast::Sender<String>,
     /// 0 if server is not running.
     server_pid: AtomicU32,
+    /// the server is starting up.
+    server_starting: AtomicBool,
+    /// the server is actively running.
     server_running: AtomicBool,
+    server_stopping: AtomicBool,
     server_stdin: RwLock<Option<ChildStdin>>,
+}
+
+impl Debug for AppState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AppState")
+            .field("server_pid", &self.server_pid)
+            .field("server_starting", &self.server_starting)
+            .field("server_running", &self.server_running)
+            .field("server_stopping", &self.server_stopping)
+            .field("server_stdin", &self.server_stdin)
+            .finish()
+    }
 }
 
 impl AppState {
@@ -52,9 +68,24 @@ impl AppState {
             client: reqwest::Client::new(),
             stats_channel: stats,
             console_channel: console,
+            server_starting: AtomicBool::new(false),
             server_running: AtomicBool::new(false),
+            server_stopping: AtomicBool::new(false),
             server_pid: AtomicU32::new(0),
             server_stdin: RwLock::new(None),
+        }
+    }
+
+    /// declare that the server is stopped.
+    #[inline]
+    fn set_stopped(&self) {
+        self.server_pid.store(0, Ordering::Release);
+        self.server_running.store(false, Ordering::Release);
+        self.server_stopping.store(false, Ordering::Release);
+
+        match self.server_stdin.try_write() {
+            Ok(mut stdin) => *stdin = None,
+            Err(err) => tracing::warn!("could not set server_stdin: {err}"),
         }
     }
 }

@@ -1,4 +1,5 @@
 use std::{
+    env,
     sync::{Arc, atomic::Ordering},
     time::{Duration, Instant},
 };
@@ -8,10 +9,10 @@ use common::Stats;
 use sysinfo::{Cpu, MemoryRefreshKind, Pid, ProcessRefreshKind, RefreshKind, System};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
-    process::ChildStdout,
+    process::{Child, ChildStdout},
     signal,
 };
-use tracing::Level;
+use tracing::{instrument, Level};
 
 use crate::AppState;
 
@@ -29,11 +30,12 @@ pub async fn trace(request: Request, next: Next) -> Response {
 
     let _enter = span.enter();
     tracing::event!(Level::DEBUG, status = resp.status().as_u16(), latency = ?start.elapsed(), "finished processing request");
-
+    
     resp
 }
 
 /// ensures graceful shutdown
+#[instrument(skip_all)]
 pub async fn shutdown(state: Arc<AppState>) {
     let ctrl_c = async {
         signal::ctrl_c()
@@ -59,14 +61,18 @@ pub async fn shutdown(state: Arc<AppState>) {
 
     tracing::info!("shutting down..");
 
+    dbg!(&state);
+
     let stdin = state.server_stdin.try_write();
     if let Ok(mut stdin) = stdin {
         if let Some(stdin) = stdin.as_mut() {
             tracing::info!("sending /stop");
+
             stdin
                 .write_all(b"/stop\n")
                 .await
                 .expect("could not write to server stdin");
+
             while state.server_running.load(Ordering::Relaxed) {
                 tracing::debug!("waiting for server to stop");
                 tokio::time::sleep(Duration::from_secs(1)).await;
@@ -76,6 +82,7 @@ pub async fn shutdown(state: Arc<AppState>) {
 }
 
 /// a background task that refreshes and broadcasts system stats.
+#[instrument(skip_all)]
 pub async fn stats_refresher(app_state: Arc<AppState>) {
     let mut system = System::new_with_specifics(RefreshKind::everything().without_processes());
     // Wait a bit because CPU usage is based on diff.
@@ -127,16 +134,37 @@ pub async fn stats_refresher(app_state: Arc<AppState>) {
     }
 }
 
+/// waits for the server ([`Child`]) to stop
+#[instrument(skip_all)]
+pub async fn server_observer(state: Arc<AppState>, mut child: Child) {
+    if let Err(err) = child.wait().await {
+        tracing::warn!("could not wait for server exit: {err}");
+    }
+
+    state.set_stopped();
+
+    tracing::info!("server stopped");
+}
+
 /// a background task that reads the stdout of the server (if running)
+#[instrument(skip_all)]
 pub async fn console_reader(state: Arc<AppState>, console_stdout: ChildStdout) {
     let tx = &state.console_channel;
 
     let mut console = BufReader::new(console_stdout).lines();
-    let mut log = tokio::io::stdout();
+
+    let show_console = env::var("SHOW_CONSOLE").is_ok_and(|v| v == "true");
+    let mut log = if show_console {
+        Some(tokio::io::stdout())
+    } else {
+        None
+    };
 
     while let Ok(Some(line)) = console.next_line().await {
-        let _ = log.write_all(line.as_bytes()).await;
-        let _ = log.write_u8(b'\n').await;
+        if let Some(ref mut log) = log {
+            let _ = log.write_all(line.as_bytes()).await;
+            let _ = log.write_u8(b'\n').await;
+        };
 
         // its from /list, safe to send raw
         if line.contains("[minecraft/MinecraftServer]: There are") {
@@ -158,7 +186,4 @@ pub async fn console_reader(state: Arc<AppState>, console_stdout: ChildStdout) {
     }
 
     tracing::warn!("server stdout closed");
-
-    state.server_pid.store(0, Ordering::Release);
-    state.server_running.store(false, Ordering::Release);
 }

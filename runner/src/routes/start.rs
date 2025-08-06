@@ -57,13 +57,18 @@ pub async fn start(State(state): State<Arc<AppState>>) -> (StatusCode, &'static 
         return (StatusCode::TOO_MANY_REQUESTS, "already running..");
     }
 
-    state.server_running.store(true, Ordering::Release);
+    if state.server_starting.load(Ordering::Relaxed) {
+        return (StatusCode::TOO_MANY_REQUESTS, "already starting up!")
+    }
+
+    // TODO: we can replace this with a struct that implements AsyncDrop when its feature stabilizes
+    state.server_starting.store(true, Ordering::Release);
 
     let server_path = SERVER_PATH.as_path();
 
     tracing::info!("got run request");
     let Some(server_type) = ServerType::detect(server_path) else {
-        state.server_running.store(false, Ordering::Release);
+        state.server_starting.store(false, Ordering::Release);
         tracing::warn!("no server detected at the configured path");
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -77,7 +82,7 @@ pub async fn start(State(state): State<Arc<AppState>>) -> (StatusCode, &'static 
             let mut args = Vec::new();
 
             if !server_path.join("user_jvm_args.txt").exists() {
-                state.server_running.store(false, Ordering::Release);
+                state.server_starting.store(false, Ordering::Release);
                 tracing::debug!("could not find user_jvm_args.txt file");
                 return (StatusCode::INTERNAL_SERVER_ERROR, "could not read jvm args");
             }
@@ -87,7 +92,7 @@ pub async fn start(State(state): State<Arc<AppState>>) -> (StatusCode, &'static 
             match find_forge_args(server_path) {
                 Ok(path) => args.push(path.to_string_lossy().into_owned()),
                 Err(err) => {
-                    state.server_running.store(false, Ordering::Release);
+                    state.server_starting.store(false, Ordering::Release);
                     tracing::warn!("could not append forge args: {err}");
                     return (
                         StatusCode::INTERNAL_SERVER_ERROR,
@@ -102,13 +107,17 @@ pub async fn start(State(state): State<Arc<AppState>>) -> (StatusCode, &'static 
                 .args(args)
                 .stdout(Stdio::piped())
                 .stdin(Stdio::piped())
+                .stderr(Stdio::piped())
                 .current_dir(server_path)
                 .spawn();
             let Ok(mut child) = child else {
-                state.server_running.store(false, Ordering::Release);
+                state.server_starting.store(false, Ordering::Release);
                 tracing::error!("could not start server: {}", child.unwrap_err());
                 return (StatusCode::INTERNAL_SERVER_ERROR, "failed to run server");
             };
+
+            state.server_starting.store(false, Ordering::Release);
+            state.server_running.store(true, Ordering::Release);
 
             if let Some(pid) = child.id() {
                 state.server_pid.store(pid, Ordering::Release);
@@ -128,12 +137,7 @@ pub async fn start(State(state): State<Arc<AppState>>) -> (StatusCode, &'static 
                 tracing::warn!("could not get server stdout");
             }
 
-            tokio::spawn(async move {
-                if let Err(err) = child.wait().await {
-                    tracing::warn!("could not wait for server exit: {err}");
-                }
-                state.server_running.store(false, Ordering::Release);
-            });
+            tokio::spawn(tasks::server_observer(state, child));
         }
         ServerType::Paper | ServerType::Vanilla => {
             todo!()

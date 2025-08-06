@@ -2,29 +2,23 @@ use std::sync::{Arc, atomic::Ordering};
 
 use axum::extract::State;
 use reqwest::StatusCode;
-use tokio::io::AsyncWriteExt;
 
-use crate::AppState;
+use crate::{routes::exec_cmd, AppState};
 
 pub async fn stop(State(state): State<Arc<AppState>>) -> (StatusCode, &'static str) {
     if !state.server_running.load(Ordering::Relaxed) {
         return (StatusCode::TOO_MANY_REQUESTS, "already stopped!");
     }
 
-    let mut stdin = state.server_stdin.write().await;
-
-    if let Some(stdin) = stdin.as_mut() {
-        if let Err(err) = stdin.write_all(b"/stop\n").await {
-            tracing::warn!("failed to write to server stdin: {err}");
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "failed to turn off server",
-            )
-        } else {
-            state.server_running.store(false, Ordering::Release);
-            (StatusCode::OK, "turned off!")
-        }
-    } else {
-        (StatusCode::INTERNAL_SERVER_ERROR, "server not on!")
+    if state.server_stopping.load(Ordering::Relaxed) {
+        tracing::warn!("ignoring stop request, already stopping");
+        return (StatusCode::TOO_MANY_REQUESTS, "already stopping!")
     }
+
+    let stop = exec_cmd(state.server_stdin.write().await, "/stop").await;
+    if stop.0.is_success() {
+        state.server_stopping.store(true, Ordering::Release);
+    }
+
+    stop
 }

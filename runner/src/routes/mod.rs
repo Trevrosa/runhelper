@@ -12,6 +12,8 @@ mod ip;
 pub use ip::ip;
 
 use reqwest::StatusCode;
+use tokio::{io::AsyncWriteExt, process::ChildStdin, sync::RwLockWriteGuard};
+
 async fn exec_cmd(
     mut stdin: RwLockWriteGuard<'_, Option<ChildStdin>>,
     cmd: &str,
@@ -42,4 +44,3 @@ pub use ping::ping;
 
 mod console;
 pub use console::console;
-use tokio::{io::AsyncWriteExt, process::ChildStdin, sync::RwLockWriteGuard};
