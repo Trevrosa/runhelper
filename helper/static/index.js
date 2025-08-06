@@ -378,7 +378,9 @@ function connectConsole() {
     consoleSocket.onopen = async () => {
       if (consoleFirstConnect) {
         updateConsoleStatus("Connected to console", "connected");
-        await fetch("/api/list");
+        fetch("/api/list").then(async (resp) => {
+          addConsoleMessage(await resp.text());
+        });
         consoleFirstConnect = false;
       } else {
         updateConsoleStatus("Reconnected!", "connected");
