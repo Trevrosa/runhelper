@@ -23,6 +23,8 @@ function formatPercent(value) {
   return `${value.toFixed(0)}%`;
 }
 
+const consoleElement = document.getElementById("console");
+
 // API calls
 async function startServer() {
   await executeWithAuth(async () => {
@@ -39,6 +41,7 @@ async function startServer() {
 
       if (response.ok) {
         showStatus(`Server started: ${text}`);
+        consoleElement.innerText = "";
       } else if (response.status == 503) {
         showStatus("Failed to start server: server unavailable", true);
       } else {
@@ -331,8 +334,6 @@ serverIp.onclick = async (ev) => {
   }
 };
 
-const consoleElement = document.getElementById("console");
-
 function addConsoleMessage(message) {
   const atBottom =
     consoleElement.scrollTop >=
@@ -362,29 +363,42 @@ fetch("/api/ping").then((resp) => {
  */
 let consoleSocket = null;
 let consoleFirstConnect = true;
+const consoleStatusElement = document.getElementById("consoleStatus");
+
+function updateConsoleStatus(message, status = "disconnected") {
+  consoleStatusElement.textContent = message;
+  consoleStatusElement.className = `console-status ${status}`;
+}
 
 function connectConsole() {
   try {
+    updateConsoleStatus("Connecting to console...", "connecting");
     consoleSocket = new WebSocket("/api/console");
 
     consoleSocket.onopen = async () => {
       if (consoleFirstConnect) {
-        addConsoleMessage("connected to console");
-        await fetch("/api/list");
+        updateConsoleStatus("Connected to console", "connected");
+        fetch("/api/list").then(async (resp) => {
+          addConsoleMessage(await resp.text());
+        });
         consoleFirstConnect = false;
       } else {
-        addConsoleMessage("reconnected to console");
+        updateConsoleStatus("Reconnected!", "connected");
+        setTimeout(() => {
+          updateConsoleStatus("Connected to console", "connected");
+        }, 1000);
       }
     };
 
     consoleSocket.onclose = () => {
-      addConsoleMessage("disconnected to console");
+      updateConsoleStatus("Disconnected from console", "disconnected");
       // Reconnect
       setTimeout(connectConsole, statsTimeout);
     };
 
     consoleSocket.onerror = (error) => {
       console.error(`WebSocket error: ${error}`);
+      updateConsoleStatus("Console connection error", "disconnected");
     };
 
     consoleSocket.onmessage = (event) => {
@@ -392,10 +406,13 @@ function connectConsole() {
     };
   } catch (error) {
     console.error(`Failed to connect to stats WebSocket: ${error}`);
+    updateConsoleStatus("Failed to connect to console", "disconnected");
     setTimeout(connectConsole, statsTimeout);
   }
 }
 
+// Initialize console status
+updateConsoleStatus("Console not connected", "disconnected");
 connectConsole();
 
 // Password management

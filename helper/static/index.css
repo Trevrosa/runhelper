@@ -76,6 +76,31 @@ button {
     overflow: hidden;
 }
 
+.console-status {
+    background: #2d2d30;
+    color: #d4d4d4;
+    padding: 3px 9px;
+    font-size: 12px;
+    font-family: Consolas, 'Courier New', monospace;
+    border-bottom: 1px solid #464647;
+    flex-shrink: 0;
+}
+
+.console-status.connecting {
+    background: #664d03;
+    color: #fff3cd;
+}
+
+.console-status.connected {
+    background: #0f5132;
+    color: #d1e7dd;
+}
+
+.console-status.disconnected {
+    background: #842029;
+    color: #f8d7da;
+}
+
 .password-overlay {
     position: fixed;
     top: 0;
