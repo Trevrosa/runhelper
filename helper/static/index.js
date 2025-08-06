@@ -23,6 +23,8 @@ function formatPercent(value) {
   return `${value.toFixed(0)}%`;
 }
 
+const consoleElement = document.getElementById("console");
+
 // API calls
 async function startServer() {
   await executeWithAuth(async () => {
@@ -39,6 +41,7 @@ async function startServer() {
 
       if (response.ok) {
         showStatus(`Server started: ${text}`);
+        consoleElement.innerText = "";
       } else if (response.status == 503) {
         showStatus("Failed to start server: server unavailable", true);
       } else {
@@ -330,8 +333,6 @@ serverIp.onclick = async (ev) => {
     }, 1000);
   }
 };
-
-const consoleElement = document.getElementById("console");
 
 function addConsoleMessage(message) {
   const atBottom =
