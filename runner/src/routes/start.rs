@@ -58,7 +58,7 @@ pub async fn start(State(state): State<Arc<AppState>>) -> (StatusCode, &'static 
     }
 
     if state.server_starting.load(Ordering::Relaxed) {
-        return (StatusCode::TOO_MANY_REQUESTS, "already starting up!")
+        return (StatusCode::TOO_MANY_REQUESTS, "already starting up!");
     }
 
     // TODO: we can replace this with a struct that implements AsyncDrop when its feature stabilizes

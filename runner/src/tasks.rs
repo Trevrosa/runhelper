@@ -1,10 +1,9 @@
 use std::{
     env,
     sync::{Arc, atomic::Ordering},
-    time::{Duration, Instant},
+    time::Duration,
 };
 
-use axum::{extract::Request, middleware::Next, response::Response};
 use common::Stats;
 use sysinfo::{Cpu, MemoryRefreshKind, Pid, ProcessRefreshKind, RefreshKind, System};
 use tokio::{
@@ -12,27 +11,9 @@ use tokio::{
     process::{Child, ChildStdout},
     signal,
 };
-use tracing::{instrument, Level};
+use tracing::instrument;
 
 use crate::AppState;
-
-/// middleware to trace a little bit
-pub async fn trace(request: Request, next: Next) -> Response {
-    let span = tracing::debug_span!(
-        "request",
-        method = %request.method(),
-        uri = %request.uri(),
-        version = ?request.version(),
-    );
-
-    let start = Instant::now();
-    let resp = next.run(request).await;
-
-    let _enter = span.enter();
-    tracing::event!(Level::DEBUG, status = resp.status().as_u16(), latency = ?start.elapsed(), "finished processing request");
-    
-    resp
-}
 
 /// ensures graceful shutdown
 #[instrument(skip_all)]
@@ -162,7 +143,7 @@ pub async fn console_reader(state: Arc<AppState>, console_stdout: ChildStdout) {
         if let Some(ref mut log) = log {
             let _ = log.write_all(line.as_bytes()).await;
             let _ = log.write_u8(b'\n').await;
-        };
+        }
 
         // its from /list, safe to send raw
         if line.contains("[minecraft/MinecraftServer]: There are") {

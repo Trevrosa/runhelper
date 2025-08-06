@@ -12,11 +12,7 @@ use std::{
     time::Duration,
 };
 
-use axum::{
-    Router,
-    middleware::{self},
-    routing::get,
-};
+use axum::{Router, routing::get};
 use common::Stats;
 use tokio::{
     net::TcpListener,
@@ -58,7 +54,7 @@ impl Debug for AppState {
             .field("server_running", &self.server_running)
             .field("server_stopping", &self.server_stopping)
             .field("server_stdin", &self.server_stdin)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
@@ -124,7 +120,6 @@ async fn main() -> anyhow::Result<()> {
         .route("/stats", get(stats))
         .route("/console", get(console))
         .with_state(app_state.clone())
-        .layer(middleware::from_fn(tasks::trace))
         .layer(TimeoutLayer::new(Duration::from_secs(5)));
 
     tokio::spawn(tasks::stats_refresher(app_state.clone()));
