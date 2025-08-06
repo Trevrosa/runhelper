@@ -8,12 +8,16 @@ use common::Stats;
 use sysinfo::{Cpu, MemoryRefreshKind, Pid, ProcessRefreshKind, RefreshKind, System};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
-    process::{Child, ChildStdout},
+    process::{Child, ChildStdin, ChildStdout},
     signal,
+    sync::broadcast,
 };
 use tracing::instrument;
 
 use crate::AppState;
+
+/// how many times to wait for the server to shutdown
+const SERVER_SHUTDOWN_RETRIES: u32 = 3;
 
 /// ensures graceful shutdown
 #[instrument(skip_all)]
@@ -42,21 +46,20 @@ pub async fn shutdown(state: Arc<AppState>) {
 
     tracing::info!("shutting down..");
 
-    let stdin = state.server_stdin.try_write();
-    if let Ok(mut stdin) = stdin {
-        if let Some(stdin) = stdin.as_mut() {
-            tracing::info!("sending /stop");
+    if let Err(err) = state.server_stdin.send("/stop".to_string()) {
+        tracing::warn!("could not send /stop: {err}");
+    }
 
-            stdin
-                .write_all(b"/stop\n")
-                .await
-                .expect("could not write to server stdin");
-
-            while state.server_running.load(Ordering::Relaxed) {
-                tracing::debug!("waiting for server to stop");
-                tokio::time::sleep(Duration::from_secs(1)).await;
-            }
+    let mut retries = 0;
+    while state.server_running.load(Ordering::Relaxed) {
+        if retries == SERVER_SHUTDOWN_RETRIES {
+            tracing::warn!("reached maximum retries, shutting down anyway");
+            return;
         }
+
+        tracing::debug!("waiting for server to stop");
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        retries += 1;
     }
 }
 
@@ -125,11 +128,21 @@ pub async fn server_observer(state: Arc<AppState>, mut child: Child) {
     tracing::info!("server stopped");
 }
 
+#[instrument(skip_all)]
+pub async fn console_writer(mut rx: broadcast::Receiver<String>, mut stdin: ChildStdin) {
+    while let Ok(cmd) = rx.recv().await {
+        let write_1 = stdin.write_all(cmd.as_bytes()).await;
+        let write_2 = stdin.write_u8(b'\n').await;
+
+        if let Err(err) = write_1.or(write_2) {
+            tracing::warn!("could not write to stdin: {err}");
+        }
+    }
+}
+
 /// a background task that reads the stdout of the server (if running)
 #[instrument(skip_all)]
-pub async fn console_reader(state: Arc<AppState>, console_stdout: ChildStdout) {
-    let tx = &state.console_channel;
-
+pub async fn console_reader(tx: broadcast::Sender<String>, console_stdout: ChildStdout) {
     let mut console = BufReader::new(console_stdout).lines();
 
     let show_console = env::var("SHOW_CONSOLE").is_ok_and(|v| v == "true");

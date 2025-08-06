@@ -1,18 +1,21 @@
-use std::sync::{Arc, atomic::Ordering};
+use std::sync::atomic::Ordering;
 
 use axum::extract::{Path, State};
 use reqwest::StatusCode;
 
-use crate::{AppState, routes::exec_cmd};
+use super::AppState;
 
 /// NOT meant to be accessible publicly.
-pub async fn exec(
-    Path(cmd): Path<String>,
-    State(state): State<Arc<AppState>>,
-) -> (StatusCode, &'static str) {
+pub async fn exec(Path(cmd): Path<String>, State(state): AppState) -> (StatusCode, &'static str) {
     if !state.server_running.load(Ordering::Relaxed) {
         return (StatusCode::SERVICE_UNAVAILABLE, "server not on!");
     }
 
-    exec_cmd(state.server_stdin.write().await, &cmd).await
+    if let Err(err) = state.server_stdin.send(cmd) {
+        tracing::info!("failed to send cmd: {err}");
+    } else {
+        state.server_stopping.store(true, Ordering::Release);
+    }
+
+    (StatusCode::OK, "executed command!")
 }

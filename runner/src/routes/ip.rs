@@ -1,11 +1,9 @@
-use std::sync::Arc;
-
 use axum::{extract::State, http::StatusCode};
 
-use crate::AppState;
+use super::AppState;
 
 /// returns the server's ip.
-pub async fn ip(State(state): State<Arc<AppState>>) -> Result<String, (StatusCode, &'static str)> {
+pub async fn ip(State(state): AppState) -> Result<String, (StatusCode, &'static str)> {
     let client = &state.client;
 
     let resp = client.get("https://ipinfo.io/ip").send().await;

@@ -1,7 +1,7 @@
 use std::{
     path::{Path, PathBuf},
     process::Stdio,
-    sync::{Arc, atomic::Ordering},
+    sync::atomic::Ordering,
 };
 
 use anyhow::anyhow;
@@ -9,7 +9,9 @@ use axum::extract::State;
 use reqwest::StatusCode;
 use tokio::process::Command;
 
-use crate::{AppState, SERVER_PATH, tasks};
+use crate::{SERVER_PATH, tasks};
+
+use super::AppState;
 
 #[derive(Debug)]
 enum ServerType {
@@ -51,7 +53,7 @@ fn find_forge_args(server_path: &Path) -> anyhow::Result<PathBuf> {
         .join(args_file))
 }
 
-pub async fn start(State(state): State<Arc<AppState>>) -> (StatusCode, &'static str) {
+pub async fn start(State(state): AppState) -> (StatusCode, &'static str) {
     if state.server_running.load(Ordering::Relaxed) {
         tracing::warn!("ignoring run request, already running");
         return (StatusCode::TOO_MANY_REQUESTS, "already running..");
@@ -126,18 +128,20 @@ pub async fn start(State(state): State<Arc<AppState>>) -> (StatusCode, &'static 
             }
 
             if let Some(stdin) = child.stdin.take() {
-                state.server_stdin.write().await.replace(stdin);
+                tokio::spawn(tasks::console_writer(state.server_stdin.subscribe(), stdin));
             } else {
                 tracing::warn!("could not get server stdin");
             }
 
             if let Some(stdout) = child.stdout.take() {
-                tokio::spawn(tasks::console_reader(state.clone(), stdout));
+                tokio::spawn(tasks::console_reader(state.console_channel.clone(), stdout));
             } else {
                 tracing::warn!("could not get server stdout");
             }
 
             tokio::spawn(tasks::server_observer(state, child));
+
+            tracing::info!("server started!");
         }
         ServerType::Paper | ServerType::Vanilla => {
             todo!()

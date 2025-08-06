@@ -3,7 +3,7 @@ use std::sync::{Arc, atomic::Ordering};
 use axum::extract::State;
 use reqwest::StatusCode;
 
-use crate::{AppState, routes::exec_cmd};
+use crate::AppState;
 
 pub async fn stop(State(state): State<Arc<AppState>>) -> (StatusCode, &'static str) {
     if !state.server_running.load(Ordering::Relaxed) {
@@ -15,10 +15,13 @@ pub async fn stop(State(state): State<Arc<AppState>>) -> (StatusCode, &'static s
         return (StatusCode::TOO_MANY_REQUESTS, "already stopping!");
     }
 
-    let stop = exec_cmd(state.server_stdin.write().await, "/stop").await;
-    if stop.0.is_success() {
+    tracing::info!("received stop request");
+
+    if let Err(err) = state.server_stdin.send("/stop".to_string()) {
+        tracing::warn!("failed to send /stop: {err}");
+    } else {
         state.server_stopping.store(true, Ordering::Release);
     }
 
-    stop
+    (StatusCode::OK, "sent /stop!")
 }
