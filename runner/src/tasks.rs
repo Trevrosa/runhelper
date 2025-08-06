@@ -60,6 +60,8 @@ pub async fn shutdown(state: Arc<AppState>) {
         tracing::debug!("waiting for server to stop");
         tokio::time::sleep(Duration::from_secs(1)).await;
         retries += 1;
+
+        let _ = state.server_stdin.send("/stop".to_string());
     }
 }
 
