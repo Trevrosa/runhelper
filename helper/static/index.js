@@ -334,12 +334,12 @@ serverIp.onclick = async (ev) => {
 const consoleElement = document.getElementById("console");
 
 function addConsoleMessage(message) {
+  const atBottom =
+    consoleElement.scrollTop >=
+    consoleElement.scrollHeight - consoleElement.clientHeight - 5;
+
   consoleElement.innerText += `${message}\n`;
 
-  const atBottom =
-    consoleElement.scrollTop == 0 ||
-    consoleElement.scrollTop >=
-      consoleElement.scrollHeight - consoleElement.clientHeight;
   if (atBottom) {
     consoleElement.scrollTop = consoleElement.scrollHeight;
   }
