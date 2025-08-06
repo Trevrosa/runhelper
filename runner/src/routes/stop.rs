@@ -8,6 +8,8 @@ use reqwest::StatusCode;
 
 use crate::AppState;
 
+const STOP_RETRIES: u32 = 5;
+
 pub async fn stop(State(state): State<Arc<AppState>>) -> (StatusCode, &'static str) {
     if !state.server_running.load(Ordering::Relaxed) {
         return (StatusCode::TOO_MANY_REQUESTS, "already stopped!");
@@ -27,14 +29,19 @@ pub async fn stop(State(state): State<Arc<AppState>>) -> (StatusCode, &'static s
     }
 
     // sometimes the server doesnt stop from one /stop (from plugins/mods?)
-    // so we wait 5 seconds and send /stop again.
+    // so we wait 5 seconds and send /stop until it actually stops.
     // we dont want the request to take 5 seconds though,
     // so we do the waiting in a spawned task.
     tokio::spawn(async move {
-        tokio::time::sleep(Duration::from_secs(5)).await;
+        let mut retries = 0;
+        while retries <= STOP_RETRIES && state.server_running.load(Ordering::Relaxed) {
+            tokio::time::sleep(Duration::from_secs(5)).await;
+    
+            if let Err(err) = state.server_stdin.send("/stop".to_string()) {
+                tracing::warn!("failed to send /stop: {err}");
+            }
 
-        if let Err(err) = state.server_stdin.send("/stop".to_string()) {
-            tracing::warn!("failed to send /stop: {err}");
+            retries += 1;
         }
     });
 
