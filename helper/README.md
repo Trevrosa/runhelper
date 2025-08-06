@@ -2,6 +2,8 @@
 
 this is meant to run on the other computer, and is accessible to the internet
 
+the `/static` files can be precompressed with [brotli](https://github.com/google/brotli)
+
 ## configuration
 
 the env var `RUNNER_ADDR` should be the (local) address of the runner.

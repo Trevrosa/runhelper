@@ -291,7 +291,7 @@ function updateStatsDisplay(data) {
 
   if (data.server_disk_usage) {
     let server_disk_usage = formatBytes(data.server_disk_usage);
-    serverDisk.innerText = `${server_disk_usage}`;
+    serverDisk.innerText = `${server_disk_usage} / sec`;
   } else {
     serverDisk.innerText = "-";
   }
@@ -335,7 +335,13 @@ const consoleElement = document.getElementById("console");
 
 function addConsoleMessage(message) {
   consoleElement.innerHTML += `${message}\n`;
-  consoleElement.scrollTop = consoleElement.scrollHeight;
+
+  const atBottom =
+    consoleElement.scrollTop >=
+    consoleElement.scrollHeight - consoleElement.clientHeight - 5;
+  if (atBottom) {
+    consoleElement.scrollTop = consoleElement.scrollHeight;
+  }
 
   // limit console history to 500 lines
   const lines = consoleElement.innerHTML.split("\n");
@@ -344,22 +350,34 @@ function addConsoleMessage(message) {
   }
 }
 
+fetch("/api/ping").then((resp) => {
+  if (!resp.ok) {
+    addConsoleMessage("computer does not seem to be awake");
+  }
+});
+
 /**
  * @type {WebSocket | null}
  */
 let consoleSocket = null;
+let consoleFirstConnect = true;
 
 function connectConsole() {
   try {
     consoleSocket = new WebSocket("/api/console");
 
     consoleSocket.onopen = async () => {
-      addConsoleMessage("connected to console");
-      await fetch("/api/list");
+      if (consoleFirstConnect) {
+        addConsoleMessage("connected to console");
+        await fetch("/api/list");
+        consoleFirstConnect = false;
+      } else {
+        addConsoleMessage("reconnected to console");
+      }
     };
 
     consoleSocket.onclose = () => {
-      console.error("disconnected from server console, reconnecting");
+      addConsoleMessage("disconnected to console");
       // Reconnect
       setTimeout(connectConsole, statsTimeout);
     };
