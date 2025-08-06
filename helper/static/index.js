@@ -337,8 +337,9 @@ function addConsoleMessage(message) {
   consoleElement.innerHTML += `${message}\n`;
 
   const atBottom =
-    consoleElement.scrollTop >=
-    consoleElement.scrollHeight - consoleElement.clientHeight - 5;
+    consoleElement.ScrollTop == 0 ||
+    consoleElement.scrollTop ==
+      consoleElement.scrollHeight - consoleElement.clientHeight;
   if (atBottom) {
     consoleElement.scrollTop = consoleElement.scrollHeight;
   }
