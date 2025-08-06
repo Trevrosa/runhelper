@@ -1,9 +1,14 @@
-use std::sync::{Arc, atomic::Ordering};
+use std::{
+    sync::{Arc, atomic::Ordering},
+    time::Duration,
+};
 
 use axum::extract::State;
 use reqwest::StatusCode;
 
-use crate::{AppState, routes::exec_cmd};
+use crate::AppState;
+
+const STOP_RETRIES: u32 = 5;
 
 pub async fn stop(State(state): State<Arc<AppState>>) -> (StatusCode, &'static str) {
     if !state.server_running.load(Ordering::Relaxed) {
@@ -15,10 +20,30 @@ pub async fn stop(State(state): State<Arc<AppState>>) -> (StatusCode, &'static s
         return (StatusCode::TOO_MANY_REQUESTS, "already stopping!");
     }
 
-    let stop = exec_cmd(state.server_stdin.write().await, "/stop").await;
-    if stop.0.is_success() {
+    tracing::info!("received stop request");
+
+    if let Err(err) = state.server_stdin.send("/stop".to_string()) {
+        tracing::warn!("failed to send /stop: {err}");
+    } else {
         state.server_stopping.store(true, Ordering::Release);
     }
 
-    stop
+    // sometimes the server doesnt stop from one /stop (from plugins/mods?)
+    // so we wait 5 seconds and send /stop until it actually stops.
+    // we dont want the request to take 5 seconds though,
+    // so we do the waiting in a spawned task.
+    tokio::spawn(async move {
+        let mut retries = 0;
+        while retries <= STOP_RETRIES && state.server_running.load(Ordering::Relaxed) {
+            tokio::time::sleep(Duration::from_secs(5)).await;
+    
+            if let Err(err) = state.server_stdin.send("/stop".to_string()) {
+                tracing::warn!("failed to send /stop: {err}");
+            }
+
+            retries += 1;
+        }
+    });
+
+    (StatusCode::OK, "sent /stop!")
 }

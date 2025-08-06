@@ -14,11 +14,7 @@ use std::{
 
 use axum::{Router, routing::get};
 use common::Stats;
-use tokio::{
-    net::TcpListener,
-    process::{ChildStdin, Command},
-    sync::{RwLock, broadcast},
-};
+use tokio::{net::TcpListener, process::Command, sync::broadcast};
 use tower_http::timeout::TimeoutLayer;
 use tracing::Level;
 
@@ -43,7 +39,7 @@ struct AppState {
     /// the server is actively running.
     server_running: AtomicBool,
     server_stopping: AtomicBool,
-    server_stdin: RwLock<Option<ChildStdin>>,
+    server_stdin: broadcast::Sender<String>,
 }
 
 impl Debug for AppState {
@@ -53,13 +49,16 @@ impl Debug for AppState {
             .field("server_starting", &self.server_starting)
             .field("server_running", &self.server_running)
             .field("server_stopping", &self.server_stopping)
-            .field("server_stdin", &self.server_stdin)
             .finish_non_exhaustive()
     }
 }
 
 impl AppState {
-    fn new(stats: broadcast::Sender<Stats>, console: broadcast::Sender<String>) -> Self {
+    fn new(
+        stats: broadcast::Sender<Stats>,
+        console: broadcast::Sender<String>,
+        stdin: broadcast::Sender<String>,
+    ) -> Self {
         AppState {
             client: reqwest::Client::new(),
             stats_channel: stats,
@@ -68,7 +67,7 @@ impl AppState {
             server_running: AtomicBool::new(false),
             server_stopping: AtomicBool::new(false),
             server_pid: AtomicU32::new(0),
-            server_stdin: RwLock::new(None),
+            server_stdin: stdin,
         }
     }
 
@@ -78,11 +77,6 @@ impl AppState {
         self.server_pid.store(0, Ordering::Release);
         self.server_running.store(false, Ordering::Release);
         self.server_stopping.store(false, Ordering::Release);
-
-        match self.server_stdin.try_write() {
-            Ok(mut stdin) => *stdin = None,
-            Err(err) => tracing::warn!("could not set server_stdin: {err}"),
-        }
     }
 }
 
@@ -108,7 +102,8 @@ async fn main() -> anyhow::Result<()> {
 
     let (stats_tx, _rx) = broadcast::channel(16);
     let (console_tx, _rx) = broadcast::channel(16);
-    let app_state = Arc::new(AppState::new(stats_tx, console_tx));
+    let (stdin_tx, _rx) = broadcast::channel(16);
+    let app_state = Arc::new(AppState::new(stats_tx, console_tx, stdin_tx));
 
     let app = Router::new()
         .route("/start", get(start))
