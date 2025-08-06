@@ -334,10 +334,10 @@ serverIp.onclick = async (ev) => {
 const consoleElement = document.getElementById("console");
 
 function addConsoleMessage(message) {
-  consoleElement.innerHTML += `${message}\n`;
+  consoleElement.innerText += `${message}\n`;
 
   const atBottom =
-    consoleElement.ScrollTop == 0 ||
+    consoleElement.scrollTop == 0 ||
     consoleElement.scrollTop ==
       consoleElement.scrollHeight - consoleElement.clientHeight;
   if (atBottom) {
@@ -345,9 +345,9 @@ function addConsoleMessage(message) {
   }
 
   // limit console history to 500 lines
-  const lines = consoleElement.innerHTML.split("\n");
+  const lines = consoleElement.innerText.split("\n");
   if (lines.length > 500) {
-    consoleElement.innerHTML = lines.slice(-500).join("\n");
+    consoleElement.innerText = lines.slice(-500).join("\n");
   }
 }
 
