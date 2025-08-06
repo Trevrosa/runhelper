@@ -13,8 +13,6 @@ pub async fn exec(Path(cmd): Path<String>, State(state): AppState) -> (StatusCod
 
     if let Err(err) = state.server_stdin.send(cmd) {
         tracing::info!("failed to send cmd: {err}");
-    } else {
-        state.server_stopping.store(true, Ordering::Release);
     }
 
     (StatusCode::OK, "executed command!")

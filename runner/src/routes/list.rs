@@ -12,8 +12,6 @@ pub async fn list(State(state): AppState) -> (StatusCode, &'static str) {
 
     if let Err(err) = state.server_stdin.send("/list".to_string()) {
         tracing::info!("failed to send cmd: {err}");
-    } else {
-        state.server_stopping.store(true, Ordering::Release);
     }
 
     (StatusCode::OK, "sent /list!")

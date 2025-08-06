@@ -38,6 +38,7 @@ struct AppState {
     server_starting: AtomicBool,
     /// the server is actively running.
     server_running: AtomicBool,
+    /// the server is requested to be stopped
     server_stopping: AtomicBool,
     server_stdin: broadcast::Sender<String>,
 }
