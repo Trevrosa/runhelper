@@ -63,7 +63,6 @@ pub async fn start(State(state): AppState) -> (StatusCode, &'static str) {
         return (StatusCode::TOO_MANY_REQUESTS, "already starting up!");
     }
 
-    // TODO: we can replace this with a struct that implements AsyncDrop when its feature stabilizes
     state.server_starting.store(true, Ordering::Release);
 
     let server_path = SERVER_PATH.as_path();
