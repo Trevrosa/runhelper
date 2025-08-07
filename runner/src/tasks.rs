@@ -67,10 +67,10 @@ pub async fn shutdown(state: Arc<AppState>) {
 
 /// a background task that refreshes and broadcasts system stats.
 #[instrument(skip_all)]
-pub async fn stats_refresher(app_state: Arc<AppState>) {
+pub fn stats_refresher(app_state: &Arc<AppState>) {
     let mut system = System::new_with_specifics(RefreshKind::everything().without_processes());
     // Wait a bit because CPU usage is based on diff.
-    tokio::time::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL).await;
+    std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
     // Refresh CPUs again to get actual value.
     system.refresh_cpu_usage();
 
@@ -104,11 +104,12 @@ pub async fn stats_refresher(app_state: Arc<AppState>) {
             }
         }
 
-        if let Err(err) = tx.send(stats) {
-            tracing::warn!("failed to broadcast stats: {err}");
+        if tx.send(stats).is_err() {
+            tracing::warn!("channel closed, quitting");
+            return;
         }
 
-        tokio::time::sleep(Duration::from_secs(1)).await;
+        std::thread::sleep(Duration::from_secs(1));
         system.refresh_specifics(
             RefreshKind::everything()
                 .without_processes()

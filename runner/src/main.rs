@@ -14,7 +14,7 @@ use std::{
 
 use axum::{Router, routing::get};
 use common::Stats;
-use tokio::{net::TcpListener, process::Command, sync::broadcast};
+use tokio::{net::TcpListener, process::Command, sync::broadcast, task};
 use tower_http::timeout::TimeoutLayer;
 use tracing::Level;
 
@@ -118,7 +118,10 @@ async fn main() -> anyhow::Result<()> {
         .with_state(app_state.clone())
         .layer(TimeoutLayer::new(Duration::from_secs(5)));
 
-    tokio::spawn(tasks::stats_refresher(app_state.clone()));
+    task::spawn_blocking({
+        let app_state = app_state.clone();
+        move || tasks::stats_refresher(&app_state)
+    });
 
     if let Err(err) = dotenvy::dotenv() {
         tracing::warn!("could not load .env: {err}");
@@ -148,7 +151,7 @@ async fn main() -> anyhow::Result<()> {
 
     let listener = TcpListener::bind(ip).await?;
     axum::serve(listener, app)
-        .with_graceful_shutdown(tasks::shutdown(app_state.clone()))
+        .with_graceful_shutdown(tasks::shutdown(app_state))
         .await?;
 
     Ok(())
