@@ -32,6 +32,7 @@ body {
     display: flex;
     gap: 10px;
     margin-bottom: 20px;
+    flex-wrap: wrap;
 }
 
 button {
@@ -263,8 +264,7 @@ button:disabled {
 
 .stats-grid {
     display: grid;
-    /* grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); */
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: 15px;
 }
 
@@ -345,4 +345,22 @@ button:disabled {
 .disconnected {
     background-color: #f8d7da;
     color: #721c24;
+}
+
+@media (max-width: 768px) {
+    .container.split {
+        flex-direction: column;
+    }
+
+    .controls {
+        justify-content: center;
+    }
+
+    .console-container {
+        width: 100%;
+    }
+
+    .stat-card {
+        grid-column: auto !important;
+    }
 }

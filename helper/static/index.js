@@ -32,10 +32,7 @@ async function startServer() {
       startBtn.disabled = true;
       const response = await makeAuthenticatedRequest(
         "/api/start",
-        AUTH_PASSWORD_KEY,
-        {
-          signal: AbortSignal.timeout(5000),
-        }
+        AUTH_PASSWORD_KEY
       );
       const text = await response.text();
 
@@ -65,10 +62,7 @@ async function stopServer() {
         stopBtn.disabled = true;
         const response = await makeAuthenticatedRequest(
           "/api/stop",
-          STOP_PASSWORD_KEY,
-          {
-            signal: AbortSignal.timeout(5000),
-          }
+          STOP_PASSWORD_KEY
         );
         const text = await response.text();
 
@@ -99,10 +93,7 @@ async function wakeServer() {
       wakeBtn.disabled = true;
       const response = await makeAuthenticatedRequest(
         "/api/wake",
-        AUTH_PASSWORD_KEY,
-        {
-          signal: AbortSignal.timeout(5000),
-        }
+        AUTH_PASSWORD_KEY
       );
       const text = await response.text();
 
@@ -352,11 +343,15 @@ function addConsoleMessage(message) {
   }
 }
 
-fetch("/api/ping").then((resp) => {
-  if (!resp.ok) {
+fetch("/api/ping", { signal: AbortSignal.timeout(2500) })
+  .then((resp) => {
+    if (!resp.ok) {
+      addConsoleMessage("computer does not seem to be awake");
+    }
+  })
+  .catch(() => {
     addConsoleMessage("computer does not seem to be awake");
-  }
-});
+  });
 
 /**
  * @type {WebSocket | null}
@@ -378,9 +373,13 @@ function connectConsole() {
     consoleSocket.onopen = async () => {
       if (consoleFirstConnect) {
         updateConsoleStatus("Connected to console", "connected");
-        fetch("/api/list").then(async (resp) => {
-          addConsoleMessage(await resp.text());
-        });
+        fetch("/api/list", { signal: AbortSignal.timeout(3000) }).then(
+          async (resp) => {
+            if (resp.ok || resp.status == 503) {
+              addConsoleMessage(await resp.text());
+            }
+          }
+        );
         consoleFirstConnect = false;
       } else {
         updateConsoleStatus("Reconnected!", "connected");
@@ -496,6 +495,7 @@ async function makeAuthenticatedRequest(url, passwordKey) {
   }
 
   const response = await fetch(url, {
+    signal: AbortSignal.timeout(5000),
     headers: {
       token: password,
     },
