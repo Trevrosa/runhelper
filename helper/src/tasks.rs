@@ -15,6 +15,7 @@ pub async fn websocket(
 ) -> Result<reqwest_ws::WebSocket, reqwest_ws::Error> {
     client
         .get(url)
+        .timeout(Duration::from_secs(4))
         .upgrade()
         .send()
         .await?
@@ -25,23 +26,22 @@ pub async fn websocket(
 const WS_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// transmits the stats from the runner to a channel.
-#[tracing::instrument(skip_all)]
 pub async fn stats_helper(client: reqwest::Client, tx: Sender<Bytes>) {
     loop {
         let runner_ws = websocket(&client, RUNNER_ADDR.join_unchecked("stats")).await;
         let Ok(mut runner_ws) = runner_ws else {
-            tracing::trace!("failed to connect, waiting {WS_TIMEOUT:?}..");
+            tracing::error!("failed to connect to stats, waiting {WS_TIMEOUT:?}..");
             tokio::time::sleep(WS_TIMEOUT).await;
             continue;
         };
 
-        tracing::info!("connected");
+        tracing::info!("connected to stats");
 
         while let Some(message) = runner_ws.next().await {
             let message = match message {
                 Ok(message) => message,
                 Err(err) => {
-                    tracing::warn!("websocket closed: {err}");
+                    tracing::warn!("stats ws closed: {err}");
                     break;
                 }
             };
@@ -55,29 +55,28 @@ pub async fn stats_helper(client: reqwest::Client, tx: Sender<Bytes>) {
             }
         }
 
-        tracing::warn!("disconnected, waiting {WS_TIMEOUT:?}..");
+        tracing::warn!("stats ws closed, waiting {WS_TIMEOUT:?}..");
         tokio::time::sleep(WS_TIMEOUT).await;
     }
 }
 
 /// transmits the stats from the runner to a channel.
-#[tracing::instrument(skip_all)]
 pub async fn console_helper(client: reqwest::Client, tx: Sender<String>) {
     loop {
         let runner_ws = websocket(&client, RUNNER_ADDR.join_unchecked("console")).await;
         let Ok(mut runner_ws) = runner_ws else {
-            tracing::trace!("failed to connect, waiting {WS_TIMEOUT:?}..");
+            tracing::error!("failed to connect to console, waiting {WS_TIMEOUT:?}..");
             tokio::time::sleep(WS_TIMEOUT).await;
             continue;
         };
 
-        tracing::info!("connected");
+        tracing::info!("connected to console");
 
         while let Some(message) = runner_ws.next().await {
             let message = match message {
                 Ok(message) => message,
                 Err(err) => {
-                    tracing::warn!("websocket closed: {err}");
+                    tracing::warn!("console ws closed: {err}");
                     break;
                 }
             };
@@ -91,7 +90,7 @@ pub async fn console_helper(client: reqwest::Client, tx: Sender<String>) {
             }
         }
 
-        tracing::warn!("disconnected, waiting {WS_TIMEOUT:?}..");
+        tracing::warn!("console ws closed, waiting {WS_TIMEOUT:?}..");
         tokio::time::sleep(WS_TIMEOUT).await;
     }
 }

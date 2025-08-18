@@ -8,8 +8,8 @@ anyhow = "1.0"
 axum = { version = "0.8", features = ["ws"] }
 bitcode = { version = "0.6", features = ["serde"] }
 dotenvy = "0.15"
-reqwest = "0.12"
-sysinfo = "0.36"
+reqwest = { version = "0.12", features = ["rustls-tls"], default-features = false }
+sysinfo = "0.37"
 tokio = { version = "1.47", features = ["fs", "macros", "process", "rt-multi-thread", "signal"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"

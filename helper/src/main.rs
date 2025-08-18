@@ -56,7 +56,7 @@ impl UrlExt for Url {
 
 #[rocket::main]
 async fn main() -> Result<(), rocket::Error> {
-    tracing_subscriber::fmt().compact().init();
+    tracing_subscriber::fmt().with_max_level(tracing::Level::DEBUG).without_time().compact().init();
 
     if let Err(err) = dotenvy::dotenv() {
         tracing::warn!("failed to read .env: {err}");

@@ -28,7 +28,7 @@ pub async fn stats(
                     break;
                 }
             }
-            tracing::warn!("channel closed");
+            tracing::warn!("ws closed");
             Ok(())
         })
     })
