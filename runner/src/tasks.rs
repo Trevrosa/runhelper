@@ -7,8 +7,8 @@ use std::{
 use common::Stats;
 use sysinfo::{Cpu, MemoryRefreshKind, Pid, ProcessRefreshKind, RefreshKind, System};
 use tokio::{
-    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
-    process::{Child, ChildStdin, ChildStdout},
+    io::{AsyncBufReadExt, AsyncRead, AsyncWriteExt, BufReader},
+    process::{Child, ChildStdin},
     signal,
     sync::broadcast,
 };
@@ -145,8 +145,8 @@ pub async fn console_writer(mut rx: broadcast::Receiver<String>, mut stdin: Chil
 
 /// a background task that reads the stdout of the server (if running)
 #[instrument(skip_all)]
-pub async fn console_reader(tx: broadcast::Sender<String>, console_stdout: ChildStdout) {
-    let mut console = BufReader::new(console_stdout).lines();
+pub async fn console_reader<C: AsyncRead + Unpin>(tx: broadcast::Sender<String>, console: C) {
+    let mut console = BufReader::new(console).lines();
 
     let show_console = env::var("SHOW_CONSOLE").is_ok_and(|v| v == "true");
     let mut log = if show_console {

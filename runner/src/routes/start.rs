@@ -138,6 +138,12 @@ pub async fn start(State(state): AppState) -> (StatusCode, &'static str) {
                 tracing::warn!("could not get server stdout");
             }
 
+            if let Some(stderr) = child.stderr.take() {
+                tokio::spawn(tasks::console_reader(state.console_channel.clone(), stderr));
+            } else {
+                tracing::warn!("could not get server stdout");
+            }
+
             tokio::spawn(tasks::server_observer(state, child));
 
             tracing::info!("server started!");
