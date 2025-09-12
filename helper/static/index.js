@@ -216,6 +216,19 @@ const serverRam = document.getElementById("serverRam");
 const serverCpu = document.getElementById("serverCpu");
 const serverDisk = document.getElementById("serverDisk");
 
+let serverRunning = false;
+const serverRunningStatus = document.getElementById("serverRunning");
+
+function setServerRunning() {
+  if (serverRunning) {
+    serverRunningStatus.className = "running";
+    serverRunningStatus.innerText = "running";
+  } else {
+    serverRunningStatus.className = "stopped";
+    serverRunningStatus.innerText = "stopped";
+  }
+}
+
 function updateStatsDisplay(data) {
   const system_ram = data.system_ram_free + data.system_ram_used;
   const system_ram_free = formatBytes(data.system_ram_free);
@@ -263,6 +276,8 @@ function updateStatsDisplay(data) {
     )}%</span> total)</span>`;
   }
 
+  serverRunning = true;
+
   if (data.server_cpu_usage) {
     const server_cpu_usage = Math.round(
       data.server_cpu_usage / data.system_cpu_usage.length
@@ -270,6 +285,7 @@ function updateStatsDisplay(data) {
     serverCpu.innerText = `${Math.round(server_cpu_usage)}%`;
   } else {
     serverCpu.innerText = "-";
+    serverRunning = false;
   }
 
   if (data.server_ram_usage) {
@@ -281,6 +297,7 @@ function updateStatsDisplay(data) {
     serverRam.innerText = `${server_ram_usage} (${server_system_ram}% of system)`;
   } else {
     serverRam.innerText = "-";
+    serverRunning = false;
   }
 
   if (data.server_disk_usage) {
@@ -288,7 +305,10 @@ function updateStatsDisplay(data) {
     serverDisk.innerText = `${server_disk_usage} / sec`;
   } else {
     serverDisk.innerText = "-";
+    serverRunning = false;
   }
+
+  setServerRunning();
 }
 
 const startBtn = document.getElementById("startBtn");

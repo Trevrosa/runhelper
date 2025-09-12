@@ -6,6 +6,19 @@ body {
     background-color: #f5f5f5;
 }
 
+#serverRunning {
+    font-weight: normal;
+    font-size: 0.6em;
+}
+
+#serverRunning.running {
+    color: #4CAF50;
+}
+
+#serverRunning.stopped {
+    color: #f44336;
+}
+
 .container {
     background: white;
     padding: 20px;
