@@ -128,12 +128,11 @@ impl<'r> Responder<'r, 'static> for BrFile {
 
         response.set_header(Header::new("Content-Encoding", "br"));
 
-        if let Some(stem) = self.0.file_stem() {
-            if let Some(ext) = Path::new(stem).extension() {
-                if let Some(ct) = ContentType::from_extension(&ext.to_string_lossy()) {
-                    response.adjoin_header(ct);
-                }
-            }
+        if let Some(stem) = self.0.file_stem()
+            && let Some(ext) = Path::new(stem).extension()
+            && let Some(ct) = ContentType::from_extension(&ext.to_string_lossy())
+        {
+            response.adjoin_header(ct);
         }
 
         Ok(response)

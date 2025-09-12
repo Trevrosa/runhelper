@@ -1,5 +1,3 @@
 target
 .env
 *.br
-basic_token
-stop_token

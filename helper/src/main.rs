@@ -23,6 +23,7 @@ use crate::{
         console::console, ip::ip, list::list, ping::ping, start::start, stats::stats, stop::stop,
         wake::wake,
     },
+    authorized::{BASIC_TOKEN, STOP_TOKEN},
     file_server::BrServer,
     tasks::{console_helper, stats_helper},
 };
@@ -61,6 +62,10 @@ async fn main() -> Result<(), rocket::Error> {
     if let Err(err) = dotenvy::dotenv() {
         tracing::warn!("failed to read .env: {err}");
     }
+
+    // initialize the LazyCells
+    let _ = &*BASIC_TOKEN;
+    let _ = &*STOP_TOKEN;
 
     let config = Config {
         port: 1234,

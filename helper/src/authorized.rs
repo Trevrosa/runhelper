@@ -1,3 +1,5 @@
+use std::sync::LazyLock;
+
 use rocket::{
     Request,
     http::Status,
@@ -5,10 +7,11 @@ use rocket::{
 };
 
 /// allows access to /start, /ip, /wake
-const BASIC_TOKEN: &str = include_str!("../basic_token");
-
+pub static BASIC_TOKEN: LazyLock<String> =
+    LazyLock::new(|| std::env::var("BASIC_TOKEN").expect("no `BASIC_TOKEN` env var."));
 /// allows access to /stop
-const STOP_TOKEN: &str = include_str!("../stop_token");
+pub static STOP_TOKEN: LazyLock<String> =
+    LazyLock::new(|| std::env::var("STOP_TOKEN").expect("no `STOP_TOKEN` env var."));
 
 pub struct BasicAuth(());
 
@@ -21,7 +24,7 @@ impl<'r> FromRequest<'r> for BasicAuth {
 
         match token {
             Some(token) => {
-                if token == BASIC_TOKEN {
+                if token == *BASIC_TOKEN {
                     Outcome::Success(Self(()))
                 } else {
                     Outcome::Error((Status::Unauthorized, "failed, not authorized"))
@@ -43,7 +46,7 @@ impl<'r> FromRequest<'r> for StopAuth {
 
         match token {
             Some(token) => {
-                if token == STOP_TOKEN {
+                if token == *STOP_TOKEN {
                     Outcome::Success(Self(()))
                 } else {
                     Outcome::Error((Status::Unauthorized, "failed, not authorized"))
