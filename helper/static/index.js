@@ -37,7 +37,6 @@ async function startServer() {
       const text = await response.text();
 
       if (response.ok) {
-        setServerRunning(true);
         showStatus(`Server started: ${text}`);
         consoleElement.innerText = "";
       } else if (response.status == 503) {
