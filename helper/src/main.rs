@@ -56,6 +56,7 @@ impl UrlExt for Url {
 }
 
 #[rocket::main]
+#[allow(clippy::result_large_err)]
 async fn main() -> Result<(), rocket::Error> {
     tracing_subscriber::fmt().without_time().compact().init();
 
