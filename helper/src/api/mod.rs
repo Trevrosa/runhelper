@@ -7,6 +7,8 @@ make_forward!(ip, "/ip", crate::authorized::BasicAuth);
 
 make_forward!(stop, "/stop", crate::authorized::StopAuth);
 
+make_forward!(running, "/running");
+
 make_forward!(ping, "/ping");
 
 make_forward!(list, "/list");

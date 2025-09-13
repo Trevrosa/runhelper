@@ -7,6 +7,9 @@ pub use start::start;
 mod stop;
 pub use stop::stop;
 
+mod running;
+pub use running::running;
+
 mod stats;
 pub use stats::stats;
 

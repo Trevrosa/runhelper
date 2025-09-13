@@ -20,8 +20,8 @@ use rocket::{Config, routes};
 
 use crate::{
     api::{
-        console::console, ip::ip, list::list, ping::ping, start::start, stats::stats, stop::stop,
-        wake::wake,
+        console::console, ip::ip, list::list, ping::ping, running::running, start::start,
+        stats::stats, stop::stop, wake::wake,
     },
     authorized::{BASIC_TOKEN, STOP_TOKEN},
     file_server::BrServer,
@@ -86,7 +86,7 @@ async fn main() -> Result<(), rocket::Error> {
         .mount("/", BrServer::new("./static"))
         .mount(
             "/api",
-            routes![ip, start, stop, ping, stats, console, wake, list],
+            routes![ip, start, stop, ping, stats, console, wake, list, running],
         )
         .manage(client)
         .manage(stats_tx)

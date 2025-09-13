@@ -18,7 +18,7 @@ use tokio::{net::TcpListener, process::Command, sync::broadcast, task};
 use tower_http::timeout::TimeoutLayer;
 use tracing::Level;
 
-use crate::routes::{console, exec, ip, list, ping, start, stats, stop};
+use crate::routes::{console, exec, ip, list, ping, running, start, stats, stop};
 
 #[cfg(not(target_env = "msvc"))]
 #[global_allocator]
@@ -108,6 +108,7 @@ async fn main() -> anyhow::Result<()> {
     let app = Router::new()
         .route("/start", get(start))
         .route("/stop", get(stop))
+        .route("/running", get(running))
         .route("/ip", get(ip))
         .route("/ping", get(ping))
         .route("/list", get(list))
