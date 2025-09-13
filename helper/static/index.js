@@ -230,9 +230,10 @@ function setServerRunning(running) {
 
 setInterval(() => {
   fetch("/api/running", { signal: AbortSignal.timeout(2500) })
-  .then((resp) => {
+  .then(async (resp) => {
     if (resp.ok) {
-      setServerRunning(resp.text() == "true")
+      let text = await resp.text();
+      setServerRunning(text == "true")
     } else {
       setServerRunning(false);
     }
