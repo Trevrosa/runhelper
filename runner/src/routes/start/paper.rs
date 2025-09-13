@@ -6,7 +6,7 @@ pub fn args(server_path: &Path) -> Result<Vec<String>, &'static str> {
     if server_path.join("user_jvm_args.txt").exists() {
         args.push("@user_jvm_args.txt".to_string());
     } else if let Ok(jvm_args) = env::var("PAPER_ARGS") {
-        let jvm_args = jvm_args.trim().split(' ').map(|e| e.to_string());
+        let jvm_args = jvm_args.trim().split(' ').map(ToString::to_string);
         args.extend(jvm_args);
     } else {
         tracing::warn!("could not find `user_jvm_args.txt` file");
