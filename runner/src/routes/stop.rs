@@ -28,8 +28,24 @@ pub async fn stop(State(state): State<Arc<AppState>>) -> (StatusCode, &'static s
         state.server_stopping.store(true, Ordering::Release);
     }
 
+    let state_1 = state.clone();
+    tokio::spawn(async move {
+        for _ in 1..10 {
+            if !state_1.server_running.load(Ordering::Relaxed) {
+                state_1.server_stopping.store(false, Ordering::Release);
+                break;
+            }
+
+            tokio::time::sleep(Duration::from_millis(500)).await;
+        }
+    });
+
     tokio::spawn(async move {
         tokio::time::sleep(Duration::from_secs(7)).await;
+
+        if !state.server_stopping.load(Ordering::Relaxed) {
+            return;
+        }
 
         if !state.server_running.load(Ordering::Relaxed) {
             return;
@@ -43,6 +59,8 @@ pub async fn stop(State(state): State<Arc<AppState>>) -> (StatusCode, &'static s
         } else {
             kill(pid).await;
         }
+
+        state.server_stopping.store(false, Ordering::Release);
     });
 
     (StatusCode::OK, "sent /stop!")

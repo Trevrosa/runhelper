@@ -77,7 +77,6 @@ impl AppState {
     fn set_stopped(&self) {
         self.server_pid.store(0, Ordering::Release);
         self.server_running.store(false, Ordering::Release);
-        self.server_stopping.store(false, Ordering::Release);
     }
 }
 
