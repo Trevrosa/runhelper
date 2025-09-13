@@ -162,7 +162,9 @@ pub async fn console_reader<C: AsyncRead + Unpin>(tx: broadcast::Sender<String>,
         }
 
         // its from /list, safe to send raw
-        if line.contains("[minecraft/MinecraftServer]: There are") {
+        if line.contains("INFO]: There are")
+            || line.contains("[minecraft/MinecraftServer]: There are")
+        {
             if let Err(err) = tx.send(line) {
                 tracing::warn!("failed to broadcast: {err}");
             }
