@@ -37,6 +37,7 @@ pub async fn stop(State(state): AppState) -> (StatusCode, &'static str) {
         for _ in 0..loops - 2 {
             if !state_1.server_running.load(Ordering::Relaxed) {
                 state_1.server_stopping.store(false, Ordering::Release);
+                tracing::debug!("server stopped within {WAIT_TIME:?}!");
                 break;
             }
 
