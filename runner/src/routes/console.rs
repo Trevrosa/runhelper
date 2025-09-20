@@ -1,4 +1,4 @@
-use std::sync::{Arc, atomic::Ordering};
+use std::sync::atomic::Ordering;
 
 use axum::{
     extract::{
@@ -10,12 +10,9 @@ use axum::{
 };
 use tokio::sync::broadcast::{Receiver, error::RecvError};
 
-use crate::AppState;
+use crate::routes::AppState;
 
-pub async fn console(
-    ws: WebSocketUpgrade,
-    State(state): State<Arc<AppState>>,
-) -> Result<Response, StatusCode> {
+pub async fn console(ws: WebSocketUpgrade, State(state): AppState) -> Result<Response, StatusCode> {
     if !state.server_running.load(Ordering::Relaxed) {
         return Err(StatusCode::SERVICE_UNAVAILABLE);
     }
@@ -34,7 +31,7 @@ async fn handle_socket(mut socket: WebSocket, mut channel: Receiver<String>) {
                 }
             }
             Err(RecvError::Lagged(lag)) => {
-                tracing::warn!("channel lagged {lag} msgs");
+                tracing::debug!("channel lagged {lag} msgs");
             }
             Err(RecvError::Closed) => {
                 tracing::warn!("channel closed");
