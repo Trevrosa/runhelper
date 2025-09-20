@@ -28,7 +28,7 @@ pub use ping::ping;
 mod console;
 pub use console::console;
 
-/// warn `msg`, then return an INTERNAL_SERVER_ERROR with `msg`
+/// warn `msg`, then return an `INTERNAL_SERVER_ERROR` with `msg`
 #[macro_export]
 macro_rules! warn_error {
     ($msg:expr) => {

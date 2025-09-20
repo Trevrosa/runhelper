@@ -7,7 +7,7 @@ use axum::extract::State;
 use reqwest::StatusCode;
 use tokio::process::Command;
 
-use crate::{tasks, warn_error, SERVER_PATH};
+use crate::{SERVER_PATH, tasks, warn_error};
 
 use super::AppState;
 
