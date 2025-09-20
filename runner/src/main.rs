@@ -16,6 +16,7 @@ use axum::{Router, routing::get};
 use common::Stats;
 use tokio::{net::TcpListener, process::Command, sync::broadcast, task};
 use tower_http::timeout::TimeoutLayer;
+use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;
 
 use crate::routes::{console, exec, ip, list, ping, running, start, stats, stop};
@@ -91,8 +92,16 @@ pub static SERVER_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    if let Err(err) = dotenvy::dotenv() {
+        tracing::warn!("could not load .env: {err}");
+    }
+
     tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
+        .with_env_filter(
+            EnvFilter::builder()
+                .with_default_directive(LevelFilter::INFO.into())
+                .from_env_lossy(),
+        )
         .init();
 
     let args: Vec<String> = std::env::args().collect();
@@ -122,10 +131,6 @@ async fn main() -> anyhow::Result<()> {
         let app_state = app_state.clone();
         move || tasks::stats_refresher(&app_state)
     });
-
-    if let Err(err) = dotenvy::dotenv() {
-        tracing::warn!("could not load .env: {err}");
-    }
 
     let port = std::env::var("RUNNER_PORT")
         .map(|p| p.parse().expect("configured port is not an int"))
