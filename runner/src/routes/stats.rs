@@ -39,7 +39,7 @@ async fn handle_socket(mut socket: WebSocket, mut channel: Receiver<Stats>) {
                 tokio::time::sleep(Duration::from_secs(1)).await;
             }
             Err(RecvError::Lagged(lag)) => {
-                tracing::warn!("channel lagged {lag} msgs");
+                tracing::debug!("channel lagged {lag} msgs");
             }
             Err(RecvError::Closed) => {
                 tracing::warn!("channel closed");

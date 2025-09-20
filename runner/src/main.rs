@@ -16,7 +16,7 @@ use axum::{Router, routing::get};
 use common::Stats;
 use tokio::{net::TcpListener, process::Command, sync::broadcast, task};
 use tower_http::timeout::TimeoutLayer;
-use tracing::Level;
+use tracing_subscriber::EnvFilter;
 
 use crate::routes::{console, exec, ip, list, ping, running, start, stats, stop};
 
@@ -92,7 +92,7 @@ pub static SERVER_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
-        .with_max_level(Level::DEBUG)
+        .with_env_filter(EnvFilter::from_default_env())
         .init();
 
     let args: Vec<String> = std::env::args().collect();
