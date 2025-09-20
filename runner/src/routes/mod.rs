@@ -27,3 +27,13 @@ pub use ping::ping;
 
 mod console;
 pub use console::console;
+
+/// warn `msg`, then return an INTERNAL_SERVER_ERROR with `msg`
+#[macro_export]
+macro_rules! warn_error {
+    ($msg:expr) => {
+        let msg = $msg;
+        tracing::warn!("{msg}");
+        return (StatusCode::INTERNAL_SERVER_ERROR, msg);
+    };
+}

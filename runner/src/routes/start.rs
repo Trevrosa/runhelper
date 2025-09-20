@@ -7,7 +7,7 @@ use axum::extract::State;
 use reqwest::StatusCode;
 use tokio::process::Command;
 
-use crate::{SERVER_PATH, tasks};
+use crate::{tasks, warn_error, SERVER_PATH};
 
 use super::AppState;
 
@@ -88,29 +88,25 @@ pub async fn start(State(state): AppState) -> (StatusCode, &'static str) {
     state.server_starting.store(false, Ordering::Release);
     state.server_running.store(true, Ordering::Release);
 
-    if let Some(pid) = child.id() {
-        state.server_pid.store(pid, Ordering::Release);
-    } else {
-        tracing::warn!("could not get server pid");
-    }
+    let Some(pid) = child.id() else {
+        warn_error!("could not get server pid");
+    };
 
-    if let Some(stdin) = child.stdin.take() {
-        tokio::spawn(tasks::console_writer(state.server_stdin.subscribe(), stdin));
-    } else {
-        tracing::warn!("could not get server stdin");
-    }
+    state.server_pid.store(pid, Ordering::Release);
 
-    if let Some(stdout) = child.stdout.take() {
-        tokio::spawn(tasks::console_reader(state.console_channel.clone(), stdout));
-    } else {
-        tracing::warn!("could not get server stdout");
-    }
+    let Some(stdin) = child.stdin.take() else {
+        warn_error!("could not get server stdin");
+    };
+    let Some(stdout) = child.stdout.take() else {
+        warn_error!("could not get server stdin");
+    };
+    let Some(stderr) = child.stderr.take() else {
+        warn_error!("could not get server stdin");
+    };
 
-    if let Some(stderr) = child.stderr.take() {
-        tokio::spawn(tasks::console_reader(state.console_channel.clone(), stderr));
-    } else {
-        tracing::warn!("could not get server stdout");
-    }
+    tokio::spawn(tasks::console_writer(state.server_stdin.subscribe(), stdin));
+    tokio::spawn(tasks::console_reader(state.console_channel.clone(), stdout));
+    tokio::spawn(tasks::console_reader(state.console_channel.clone(), stderr));
 
     tokio::spawn(tasks::server_observer(state, child));
 
