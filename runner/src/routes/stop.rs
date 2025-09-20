@@ -1,6 +1,6 @@
 use std::{
     process::{ExitStatus, Stdio},
-    sync::{Arc, atomic::Ordering},
+    sync::atomic::Ordering,
     time::Duration,
 };
 
@@ -8,9 +8,12 @@ use axum::extract::State;
 use reqwest::StatusCode;
 use tokio::process::Command;
 
-use crate::AppState;
+use crate::routes::AppState;
 
-pub async fn stop(State(state): State<Arc<AppState>>) -> (StatusCode, &'static str) {
+const WAIT_TIME: Duration = Duration::from_secs(10);
+const WAIT_INCRS: Duration = Duration::from_millis(500);
+
+pub async fn stop(State(state): AppState) -> (StatusCode, &'static str) {
     if !state.server_running.load(Ordering::Relaxed) {
         return (StatusCode::TOO_MANY_REQUESTS, "already stopped!");
     }
@@ -30,18 +33,19 @@ pub async fn stop(State(state): State<Arc<AppState>>) -> (StatusCode, &'static s
 
     let state_1 = state.clone();
     tokio::spawn(async move {
-        for _ in 1..10 {
+        let loops = (WAIT_TIME.as_millis() / WAIT_INCRS.as_millis()) as usize;
+        for _ in 0..loops - 2 {
             if !state_1.server_running.load(Ordering::Relaxed) {
                 state_1.server_stopping.store(false, Ordering::Release);
                 break;
             }
 
-            tokio::time::sleep(Duration::from_millis(500)).await;
+            tokio::time::sleep(WAIT_INCRS).await;
         }
     });
 
     tokio::spawn(async move {
-        tokio::time::sleep(Duration::from_secs(7)).await;
+        tokio::time::sleep(WAIT_TIME).await;
 
         if !state.server_stopping.load(Ordering::Relaxed) {
             return;
