@@ -40,7 +40,10 @@ async function startServer() {
         showStatus(`Server started: ${text}`);
         consoleElement.innerText = "";
       } else if (response.status == 503) {
-        showStatus("Failed to start server: server unavailable", true);
+        showStatus(
+          "Failed to start server: server unavailable (try waking the server)",
+          true
+        );
       } else {
         showStatus(`Failed to start server: ${text}`, true);
       }
@@ -230,17 +233,17 @@ function setServerRunning(running) {
 
 setInterval(() => {
   fetch("/api/running", { signal: AbortSignal.timeout(2500) })
-  .then(async (resp) => {
-    if (resp.ok) {
-      let text = await resp.text();
-      setServerRunning(text == "true")
-    } else {
+    .then(async (resp) => {
+      if (resp.ok) {
+        let text = await resp.text();
+        setServerRunning(text == "true");
+      } else {
+        setServerRunning(false);
+      }
+    })
+    .catch(() => {
       setServerRunning(false);
-    }
-  })
-  .catch(() => {
-    setServerRunning(false);
-  });
+    });
 }, 1000);
 
 function updateStatsDisplay(data) {
@@ -370,14 +373,15 @@ function addConsoleMessage(message) {
   }
 }
 
+const notAwakeMsg = "computer does not seem to be awake (try waking it)";
 fetch("/api/ping", { signal: AbortSignal.timeout(2500) })
   .then((resp) => {
     if (!resp.ok) {
-      addConsoleMessage("computer does not seem to be awake");
+      addConsoleMessage(notAwakeMsg);
     }
   })
   .catch(() => {
-    addConsoleMessage("computer does not seem to be awake");
+    addConsoleMessage(notAwakeMsg);
   });
 
 /**
@@ -402,8 +406,12 @@ function connectConsole() {
         updateConsoleStatus("Connected to console", "connected");
         fetch("/api/list", { signal: AbortSignal.timeout(3000) }).then(
           async (resp) => {
-            if (resp.ok || resp.status == 503) {
+            if (resp.ok) {
               addConsoleMessage(await resp.text());
+            } else if (resp.status == 503) {
+              addConsoleMessage(`failed to send /list: server not on!`);
+            } else {
+              addConsoleMessage(`failed to send /list: error ${resp.status}`);
             }
           }
         );
