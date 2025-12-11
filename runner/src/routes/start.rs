@@ -39,7 +39,7 @@ pub async fn start(State(state): AppState) -> (StatusCode, &'static str) {
 
     let cmd = match server_type {
         terraria::ServerType::TModLoader => terraria::tmodloader::command(server_path),
-        _ => todo!()
+        _ => todo!(),
     };
 
     let child = Command::new(cmd.0)
@@ -97,11 +97,9 @@ pub async fn start(State(state): AppState) -> (StatusCode, &'static str) {
     state.server_running.store(true, Ordering::Release);
 
     // FIXME: ram/cpu stats are wrong because of pid
-    let Some(pid) = child.id() else {
+    let Some(parent) = child.id() else {
         warn_error!("could not get server pid");
     };
-
-    state.server_pid.store(pid, Ordering::Release);
 
     let Some(mut stdin) = child.stdin.take() else {
         warn_error!("could not get server stdin");
@@ -120,7 +118,8 @@ pub async fn start(State(state): AppState) -> (StatusCode, &'static str) {
     tokio::spawn(tasks::console_reader(state.console_channel.clone(), stdout));
     tokio::spawn(tasks::console_reader(state.console_channel.clone(), stderr));
 
-    tokio::spawn(tasks::server_observer(state, child));
+    tokio::spawn(tasks::server_observer(state.clone(), child));
+    tokio::spawn(tasks::child_finder(state, parent));
 
     tracing::info!("server started!");
 

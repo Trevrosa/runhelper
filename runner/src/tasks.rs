@@ -4,6 +4,7 @@ use std::{
     time::Duration,
 };
 
+use children::get_children;
 use common::Stats;
 use sysinfo::{Cpu, MemoryRefreshKind, Pid, ProcessRefreshKind, RefreshKind, System};
 use tokio::{
@@ -183,4 +184,27 @@ pub async fn console_reader<C: AsyncRead + Unpin>(tx: broadcast::Sender<String>,
     }
 
     tracing::warn!("server stdout closed");
+}
+
+/// gets the real pid after it spawns
+pub async fn child_finder(state: Arc<AppState>, parent: u32) {
+    loop {
+        tokio::time::sleep(Duration::from_secs(1)).await;
+
+        let Ok(children) = get_children(parent) else {
+            tracing::warn!("failed to get server children");
+            continue;
+        };
+
+        let child = children.iter().find(|e| e.name == "dotnet.exe");
+        let Some(child) = child else {
+            tracing::warn!("real child not spawned yet");
+            continue;
+        };
+
+        tracing::info!("found real child! ({})", child.pid);
+
+        state.server_pid.store(child.pid, Ordering::Release);
+        return;
+    }
 }

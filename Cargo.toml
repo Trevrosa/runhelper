@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["common", "helper", "runner"]
+members = ["common", "helper", "runner", "children"]
 
 [profile.release]
 lto = "fat"

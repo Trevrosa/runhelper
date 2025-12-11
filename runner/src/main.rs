@@ -14,7 +14,7 @@ use std::{
 
 use axum::{Router, routing::get};
 use common::Stats;
-use tokio::{net::TcpListener, process::Command, sync::broadcast, task};
+use tokio::{net::TcpListener, sync::broadcast, task};
 use tower_http::timeout::TimeoutLayer;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;
