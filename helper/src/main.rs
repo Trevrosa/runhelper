@@ -12,11 +12,14 @@ use std::{
 use anyhow::Context;
 use reqwest::Url;
 use reqwest_websocket::Bytes;
-use rocket::{figment::{Provider, providers}, tokio::{
-    self,
-    sync::broadcast::{self},
-}};
 use rocket::{Config, routes};
+use rocket::{
+    figment::{Provider, providers},
+    tokio::{
+        self,
+        sync::broadcast::{self},
+    },
+};
 
 use crate::{
     api::{
@@ -79,10 +82,14 @@ async fn main() -> Result<(), rocket::Error> {
     let state = (client.clone(), console_tx.clone());
     tokio::spawn(console_helper(state.0, state.1));
 
-    let mut config = rocket::Config::from(rocket::Config::figment());
+    let mut config = rocket::Config::default();
+    
+    config.port = 1234;
 
-    if config.port == 8000 {
-        config.port = 1234;
+    if let Ok(port) = std::env::var("HELPER_PORT")
+        && let Ok(port) = port.parse()
+    {
+        config.port = port;
     }
 
     let _ = rocket::custom(config)
