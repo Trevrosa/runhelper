@@ -12,10 +12,10 @@ use std::{
 use anyhow::Context;
 use reqwest::Url;
 use reqwest_websocket::Bytes;
-use rocket::tokio::{
+use rocket::{figment::{Provider, providers}, tokio::{
     self,
     sync::broadcast::{self},
-};
+}};
 use rocket::{Config, routes};
 
 use crate::{
@@ -69,11 +69,6 @@ async fn main() -> Result<(), rocket::Error> {
     let _ = &*STOP_TOKEN;
     let _ = &*RUNNER_ADDR;
 
-    let config = Config {
-        port: 1234,
-        ..Default::default()
-    };
-
     let client = reqwest::Client::new();
 
     let (stats_tx, _rx) = broadcast::channel::<Bytes>(16);
@@ -83,6 +78,12 @@ async fn main() -> Result<(), rocket::Error> {
     tokio::spawn(stats_helper(state.0, state.1));
     let state = (client.clone(), console_tx.clone());
     tokio::spawn(console_helper(state.0, state.1));
+
+    let mut config = rocket::Config::from(rocket::Config::figment());
+
+    if config.port == 8000 {
+        config.port = 1234;
+    }
 
     let _ = rocket::custom(config)
         .mount("/", BrServer::new("./static"))
