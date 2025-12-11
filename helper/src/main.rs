@@ -67,6 +67,7 @@ async fn main() -> Result<(), rocket::Error> {
     // initialize the LazyCells
     let _ = &*BASIC_TOKEN;
     let _ = &*STOP_TOKEN;
+    let _ = &*RUNNER_ADDR;
 
     let config = Config {
         port: 1234,

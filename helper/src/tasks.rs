@@ -65,7 +65,7 @@ pub async fn console_helper(client: reqwest::Client, tx: Sender<String>) {
     loop {
         let runner_ws = websocket(&client, RUNNER_ADDR.join_unchecked("console")).await;
         let Ok(mut runner_ws) = runner_ws else {
-            tracing::error!("failed to connect to console, waiting {WS_TIMEOUT:?}..");
+            tracing::warn!("failed to connect to console, waiting {WS_TIMEOUT:?}..");
             tokio::time::sleep(WS_TIMEOUT).await;
             continue;
         };

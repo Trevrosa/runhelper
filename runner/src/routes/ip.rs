@@ -19,5 +19,5 @@ pub async fn ip(State(state): AppState) -> Result<String, (StatusCode, &'static 
         ));
     };
 
-    Ok(ip)
+    Ok(format!("{ip}:7777"))
 }

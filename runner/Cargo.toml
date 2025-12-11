@@ -15,6 +15,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 common = { path = "../common" }
 tower-http = { version = "0.6.6", features = ["timeout"] }
+kill_tree = { version = "0.2.4", features = ["tokio"] }
 
 [target.'cfg(target_env = "msvc")'.dependencies]
 mimalloc = "0.1"
