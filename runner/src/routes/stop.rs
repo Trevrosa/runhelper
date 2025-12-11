@@ -1,18 +1,18 @@
 use std::{
-    process::{ExitStatus, Stdio},
+    // process::{ExitStatus, Stdio},
     sync::atomic::Ordering,
-    time::Duration,
+    // time::Duration,
 };
 
 use axum::extract::State;
 use kill_tree::tokio::kill_tree;
 use reqwest::StatusCode;
-use tokio::process::Command;
+// use tokio::process::Command;
 
 use crate::routes::AppState;
 
-const WAIT_TIME: Duration = Duration::from_secs(10);
-const WAIT_INCRS: Duration = Duration::from_millis(500);
+// const WAIT_TIME: Duration = Duration::from_secs(10);
+// const WAIT_INCRS: Duration = Duration::from_millis(500);
 
 pub async fn stop(State(state): AppState) -> (StatusCode, &'static str) {
     if !state.server_running.load(Ordering::Relaxed) {
@@ -29,13 +29,11 @@ pub async fn stop(State(state): AppState) -> (StatusCode, &'static str) {
     let pid = state.server_pid.load(Ordering::Relaxed);
     if pid == 0 {
         tracing::error!("server is running, but pid is 0?");
-    } else {
-        if let Err(err) = kill_tree(pid).await {
-            state.server_stopping.store(true, Ordering::Release);
+    } else if let Err(err) = kill_tree(pid).await {
+        state.server_stopping.store(true, Ordering::Release);
 
-            tracing::error!("failed to kill process: {err:?}");
-            return (StatusCode::INTERNAL_SERVER_ERROR, "failed to kill server")
-        }
+        tracing::error!("failed to kill process: {err:?}");
+        return (StatusCode::INTERNAL_SERVER_ERROR, "failed to kill server");
     }
 
     state.server_stopping.store(false, Ordering::Release);

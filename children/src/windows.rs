@@ -15,7 +15,7 @@ pub(crate) fn process_filter(process: &ProcessInfo) -> bool {
     process.parent_pid == process.pid
 }
 
-pub(crate) fn get_processes<'a>() -> anyhow::Result<Vec<ProcessInfo>> {
+pub(crate) fn get_processes() -> anyhow::Result<Vec<ProcessInfo>> {
     let mut processes = Vec::new();
 
     // we can't return early so we set the error and return it later.
@@ -29,14 +29,14 @@ pub(crate) fn get_processes<'a>() -> anyhow::Result<Vec<ProcessInfo>> {
             match process_entry_size {
                 Ok(process_entry_size) => {
                     process_entry.dwSize = process_entry_size;
-                    match Process32First(snapshot_handle, &mut process_entry) {
+                    match Process32First(snapshot_handle, &raw mut process_entry) {
                         Ok(()) => loop {
                             processes.push(ProcessInfo {
                                 name: CStr::from_ptr(process_entry.szExeFile.as_ptr()).to_string_lossy().into_owned(),
                                 pid: process_entry.th32ProcessID,
                                 parent_pid: process_entry.th32ParentProcessID,
                             });
-                            match Process32Next(snapshot_handle, &mut process_entry) {
+                            match Process32Next(snapshot_handle, &raw mut process_entry) {
                                 Ok(()) => {}
                                 Err(e) => {
                                     if e.code() != ERROR_NO_MORE_FILES.into() {

@@ -1,4 +1,4 @@
-mod mc;
+// mod mc;
 // TODO: what about mac/linux?
 mod terraria;
 
@@ -39,7 +39,7 @@ pub async fn start(State(state): AppState) -> (StatusCode, &'static str) {
 
     let cmd = match server_type {
         terraria::ServerType::TModLoader => terraria::tmodloader::command(server_path),
-        _ => todo!(),
+        terraria::ServerType::Vanilla => todo!(),
     };
 
     let child = Command::new(cmd.0)

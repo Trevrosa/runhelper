@@ -16,8 +16,9 @@ pub struct ProcessInfo {
     pub pid: u32,
     pub parent_pid: u32,
 }
+
 /// returns the children of the `parent`.
-pub fn get_children<'a>(parent: u32) -> anyhow::Result<Vec<ProcessInfo>> {
+pub fn get_children(parent: u32) -> anyhow::Result<Vec<ProcessInfo>> {
     let processes = imp::get_processes()?;
 
     let mut process_map: HashMap<u32, Vec<ProcessInfo>> = HashMap::new();
