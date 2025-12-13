@@ -13,10 +13,10 @@ sysinfo = "0.37"
 tokio = { version = "1.47", features = ["fs", "macros", "process", "rt-multi-thread", "signal"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-common = { path = "../common" }
 tower-http = { version = "0.6.6", features = ["timeout"] }
 kill_tree = { version = "0.2.4", features = ["tokio"] }
 
+common = { path = "../common" }
 children = { path = "../children" }
 
 [target.'cfg(target_env = "msvc")'.dependencies]
