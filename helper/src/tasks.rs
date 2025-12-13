@@ -79,7 +79,7 @@ pub async fn console_helper(state: Arc<AppState>) {
             Err(err) => {
                 match err {
                     reqwest_websocket::Error::Reqwest(..) => {
-                        tracing::warn!("failed to connect, waiting {WS_TIMEOUT:?}..")
+                        tracing::error!("failed to connect, waiting {WS_TIMEOUT:?}..")
                     }
                     _ => tracing::debug!("failed to connect, waiting {WS_TIMEOUT:?}.."),
                 }
