@@ -78,7 +78,7 @@ async fn main() -> anyhow::Result<()> {
     tokio::spawn(console_helper(app_state.clone()));
 
     let app = Router::new()
-        .route_service("/", ServeDir::new("./static").precompressed_br())
+        .fallback_service(ServeDir::new("static").precompressed_br())
         .nest("/api", api::unauthed())
         .nest("/api", api::basic_auth())
         .nest("/api", api::stop_auth())
