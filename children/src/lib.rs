@@ -46,3 +46,15 @@ pub fn get_children(parent: u32) -> anyhow::Result<Vec<ProcessInfo>> {
 
     Ok(children)
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    #[cfg(windows)]
+    fn get_children() {
+        // 4 is the system process
+        let children = super::get_children(4).unwrap();
+        dbg!(&children);
+        assert!(!children.is_empty())
+    }
+}
