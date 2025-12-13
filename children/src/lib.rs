@@ -54,7 +54,10 @@ mod tests {
     fn get_children() {
         // 4 is the system process
         let children = super::get_children(4).unwrap();
+
         dbg!(&children);
-        assert!(!children.is_empty())
+
+        assert!(!children.is_empty());
+        assert!(children.iter().all(|e| e.parent_pid == 4));
     }
 }
