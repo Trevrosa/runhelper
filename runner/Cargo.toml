@@ -10,7 +10,7 @@ bitcode = { version = "0.6", features = ["serde"] }
 dotenvy = "0.15"
 reqwest = { version = "0.12", features = ["rustls-tls"], default-features = false }
 sysinfo = "0.37"
-tokio = { version = "1.47", features = ["fs", "macros", "process", "rt-multi-thread", "signal"] }
+tokio = { version = "1.48", features = ["fs", "macros", "process", "rt-multi-thread", "signal"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tower-http = { version = "0.6.6", features = ["timeout"] }
