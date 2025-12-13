@@ -23,10 +23,6 @@ pub fn get_children(parent: u32) -> anyhow::Result<Vec<ProcessInfo>> {
 
     let mut process_map: HashMap<u32, Vec<ProcessInfo>> = HashMap::new();
     for process in processes {
-        if imp::process_filter(&process) {
-            continue;
-        }
-
         let children = process_map.entry(process.parent_pid).or_default();
         children.push(process);
     }
@@ -37,12 +33,13 @@ pub fn get_children(parent: u32) -> anyhow::Result<Vec<ProcessInfo>> {
     let mut nested_pids: VecDeque<u32> = VecDeque::new();
     nested_pids.push_back(parent);
     while let Some(pid) = nested_pids.pop_front() {
-        if let Some(nested_children) = process_map.get(&pid) {
+        if let Some(nested_children) = process_map.remove(&pid) {
             for child in nested_children {
-                if child.pid != parent {
-                    children.push(child.clone());
-                }
                 nested_pids.push_back(child.pid);
+
+                if child.pid != parent {
+                    children.push(child);
+                }
             }
         }
     }
