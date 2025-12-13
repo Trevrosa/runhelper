@@ -26,11 +26,13 @@ pub async fn stop(State(state): AppState) -> (StatusCode, &'static str) {
 
     tracing::info!("received stop request");
 
+    state.server_stopping.store(true, Ordering::Release);
+
     let pid = state.server_pid.load(Ordering::Relaxed);
     if pid == 0 {
         tracing::error!("server is running, but pid is 0?");
     } else if let Err(err) = kill_tree(pid).await {
-        state.server_stopping.store(true, Ordering::Release);
+        state.server_stopping.store(false, Ordering::Release);
 
         tracing::error!("failed to kill process: {err:?}");
         return (StatusCode::INTERNAL_SERVER_ERROR, "failed to kill server");
