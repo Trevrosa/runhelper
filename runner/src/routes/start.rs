@@ -1,5 +1,6 @@
+// TODO: make the two server types better integrated
+
 mod minecraft;
-// TODO: what about mac/linux?
 mod terraria;
 
 use std::sync::atomic::Ordering;

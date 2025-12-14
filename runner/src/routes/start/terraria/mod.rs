@@ -1,6 +1,6 @@
 use axum::http::StatusCode;
-use std::{path::Path, process::Stdio};
-use tokio::process::{Child, Command};
+use std::path::Path;
+use tokio::process::Child;
 
 pub mod tmodloader;
 
@@ -32,26 +32,12 @@ pub fn run(server_path: &Path) -> Result<tokio::io::Result<Child>, (StatusCode, 
     };
     tracing::debug!("detected server type {server_type:?}");
 
-    let cmd = match server_type {
+    let mut cmd = match server_type {
         ServerType::TModLoader => tmodloader::command(server_path),
         ServerType::Vanilla => todo!(),
     };
 
-    let child = Command::new(cmd.0)
-        .env("WINDOWS_MAJOR", "10")
-        .env("WINDOWS_MINOR", "0")
-        .args(cmd.1)
-        .arg("-config")
-        .stdout(Stdio::piped())
-        .stdin(Stdio::piped())
-        .stderr(Stdio::piped())
-        .current_dir(server_path)
-        .arg(
-            std::env::current_dir()
-                .unwrap_or_else(|_| "./".into())
-                .join("terrariaConfig.txt"),
-        )
-        .spawn();
+    let child = cmd.spawn();
 
     Ok(child)
 }
