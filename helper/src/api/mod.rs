@@ -5,7 +5,7 @@ use axum::{
     body::Body,
     extract::Request,
     http::{Response, StatusCode},
-    routing::{any, get},
+    routing::get,
 };
 use tower_http::auth::AsyncRequireAuthorizationLayer;
 
@@ -38,8 +38,8 @@ pub mod wake;
 
 pub fn unauthed() -> Router<Arc<crate::AppState>> {
     Router::new()
-        .route("/stats", any(stats::stats))
-        .route("/console", any(console::console))
+        .route("/stats", get(stats::stats))
+        .route("/console", get(console::console))
         .route("/running", get(running::running))
         .route("/ping", get(ping::ping))
         .route("/list", get(list::list))
