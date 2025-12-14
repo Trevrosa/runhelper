@@ -33,12 +33,9 @@ pub async fn stats_helper(state: Arc<AppState>) {
         let mut runner_ws = match runner_ws {
             Ok(ws) => ws,
             Err(err) => {
-                match err {
-                    reqwest_websocket::Error::Reqwest(..) => {
-                        tracing::error!("failed to connect, waiting {WS_TIMEOUT:?}..")
-                    }
-                    _ => tracing::debug!("failed to connect, waiting {WS_TIMEOUT:?}.."),
-                }
+                if let reqwest_websocket::Error::Reqwest(..) = err {
+                    tracing::error!("failed to connect, waiting {WS_TIMEOUT:?}..");
+                } else { tracing::debug!("failed to connect, waiting {WS_TIMEOUT:?}..") }
                 tokio::time::sleep(WS_TIMEOUT).await;
                 continue;
             }
@@ -77,12 +74,9 @@ pub async fn console_helper(state: Arc<AppState>) {
         let mut runner_ws = match runner_ws {
             Ok(ws) => ws,
             Err(err) => {
-                match err {
-                    reqwest_websocket::Error::Reqwest(..) => {
-                        tracing::error!("failed to connect, waiting {WS_TIMEOUT:?}..")
-                    }
-                    _ => tracing::debug!("failed to connect, waiting {WS_TIMEOUT:?}.."),
-                }
+                if let reqwest_websocket::Error::Reqwest(..) = err {
+                    tracing::error!("failed to connect, waiting {WS_TIMEOUT:?}..");
+                } else { tracing::debug!("failed to connect, waiting {WS_TIMEOUT:?}..") }
                 tokio::time::sleep(WS_TIMEOUT).await;
                 continue;
             }

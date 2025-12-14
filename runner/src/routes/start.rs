@@ -1,12 +1,17 @@
-// mod mc;
+#[cfg(all(feature = "minecraft", feature = "terraria"))]
+compile_error!("you can only have one of these features.");
+
+#[cfg(feature = "minecraft")]
+mod minecraft;
 // TODO: what about mac/linux?
+#[cfg(feature = "terraria")]
 mod terraria;
 
-use std::{process::Stdio, sync::atomic::Ordering};
+use std::sync::atomic::Ordering;
 
 use axum::extract::State;
 use reqwest::StatusCode;
-use tokio::{io::AsyncWriteExt, process::Command};
+use tokio::io::AsyncWriteExt;
 
 use crate::{SERVER_PATH, tasks, warn_error};
 
@@ -27,65 +32,19 @@ pub async fn start(State(state): AppState) -> (StatusCode, &'static str) {
     let server_path = SERVER_PATH.as_path();
 
     tracing::info!("got run request");
-    let Some(server_type) = terraria::ServerType::detect(server_path) else {
-        state.server_starting.store(false, Ordering::Release);
-        tracing::warn!("no server detected at the configured path");
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "no server at the configured path!",
-        );
+
+    #[cfg(feature = "minecraft")]
+    let run = minecraft::run(server_path);
+    #[cfg(feature = "terraria")]
+    let run = terraria::run(server_path);
+
+    let child = match run {
+        Ok(child) => child,
+        Err(err) => {
+            state.server_starting.store(false, Ordering::Release);
+            return err;
+        }
     };
-    tracing::debug!("detected server type {server_type:?}");
-
-    let cmd = match server_type {
-        terraria::ServerType::TModLoader => terraria::tmodloader::command(server_path),
-        terraria::ServerType::Vanilla => todo!(),
-    };
-
-    let child = Command::new(cmd.0)
-        .env("WINDOWS_MAJOR", "10")
-        .env("WINDOWS_MINOR", "0")
-        .args(cmd.1)
-        .arg("-config")
-        // FIXME: dont just unwrap
-        .arg(std::env::current_dir().unwrap().join("terrariaConfig.txt"))
-        .stdout(Stdio::piped())
-        .stdin(Stdio::piped())
-        .stderr(Stdio::piped())
-        .current_dir(server_path)
-        .spawn();
-
-    // let Some(server_type) = mc::ServerType::detect(server_path) else {
-    //     state.server_starting.store(false, Ordering::Release);
-    //     tracing::warn!("no server detected at the configured path");
-    //     return (
-    //         StatusCode::INTERNAL_SERVER_ERROR,
-    //         "no server at the configured path!",
-    //     );
-    // };
-    // tracing::debug!("detected server type {server_type:?}");
-
-    // let args = match server_type {
-    //     mc::ServerType::Forge => mc::forge::args(server_path),
-    //     mc::ServerType::Paper => mc::paper::args(server_path),
-    //     mc::ServerType::Vanilla => todo!(),
-    // };
-
-    // let args = match args {
-    //     Ok(args) => args,
-    //     Err(err) => {
-    //         state.server_starting.store(false, Ordering::Release);
-    //         return (StatusCode::INTERNAL_SERVER_ERROR, err);
-    //     }
-    // };
-
-    // let child = Command::new("java")
-    //     .args(args)
-    //     .stdout(Stdio::piped())
-    //     .stdin(Stdio::piped())
-    //     .stderr(Stdio::piped())
-    //     .current_dir(server_path)
-    //     .spawn();
 
     let Ok(mut child) = child else {
         state.server_starting.store(false, Ordering::Release);

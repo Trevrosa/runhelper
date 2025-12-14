@@ -2,20 +2,24 @@ use axum::http::StatusCode;
 use std::{path::Path, process::Stdio};
 use tokio::process::{Child, Command};
 
-pub mod tmodloader;
+pub mod forge;
+pub mod paper;
 
 #[derive(Debug)]
 pub enum ServerType {
+    Forge,
+    Paper,
     Vanilla,
-    TModLoader,
 }
 
 impl ServerType {
     pub fn detect(server_path: &Path) -> Option<Self> {
-        if server_path.join("TerrariaServer.exe").exists() {
+        if server_path.join("libraries/net/minecraftforge").exists() {
+            Some(Self::Forge)
+        } else if server_path.join("libraries/com/velocitypowered").exists() {
+            Some(Self::Paper)
+        } else if server_path.join("libraries/com/mojang").exists() {
             Some(Self::Vanilla)
-        } else if server_path.join("tModLoader.dll").exists() {
-            Some(Self::TModLoader)
         } else {
             None
         }
@@ -32,26 +36,25 @@ pub fn run(server_path: &Path) -> Result<tokio::io::Result<Child>, (StatusCode, 
     };
     tracing::debug!("detected server type {server_type:?}");
 
-    let cmd = match server_type {
-        ServerType::TModLoader => tmodloader::command(server_path),
+    let args = match server_type {
+        ServerType::Forge => forge::args(server_path),
+        ServerType::Paper => paper::args(server_path),
         ServerType::Vanilla => todo!(),
     };
 
-    let child = Command::new(cmd.0)
-        .env("WINDOWS_MAJOR", "10")
-        .env("WINDOWS_MINOR", "0")
-        .args(cmd.1)
-        .arg("-config")
+    let args = match args {
+        Ok(args) => args,
+        Err(err) => {
+            return Err((StatusCode::INTERNAL_SERVER_ERROR, err));
+        }
+    };
+
+    let child = Command::new("java")
+        .args(args)
         .stdout(Stdio::piped())
         .stdin(Stdio::piped())
         .stderr(Stdio::piped())
         .current_dir(server_path)
-        .arg(
-            std::env::current_dir()
-                .unwrap_or_else(|_| "./".into())
-                .join("terrariaConfig.txt"),
-        )
         .spawn();
-
     Ok(child)
 }
