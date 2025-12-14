@@ -143,19 +143,23 @@ async fn main() -> anyhow::Result<()> {
     let server_path = &*SERVER_PATH;
 
     tracing::info!("running server on :{port}");
-    tracing::info!("terraria server set at {server_path:?}");
-    // tracing::info!("");
-    // let java_version = Command::new("java")
-    //     .arg("--version")
-    //     .output()
-    //     .await
-    //     .expect("`java --version` failed to run");
-    // let java_version = str::from_utf8(&java_version.stdout).expect("stdout not utf8");
-    // for line in java_version.split('\n') {
-    //     if !line.is_empty() {
-    //         tracing::info!("{line}");
-    //     }
-    // }
+    if cfg!(feature = "minecraft") {
+        tracing::info!("");
+        let java_version = tokio::process::Command::new("java")
+            .arg("--version")
+            .output()
+            .await
+            .expect("`java --version` failed to run");
+        let java_version = str::from_utf8(&java_version.stdout).expect("stdout not utf8");
+        for line in java_version.split('\n') {
+            if !line.is_empty() {
+                tracing::info!("{line}");
+            }
+        }
+
+    } else if cfg!(feature = "terraria") {
+        tracing::info!("terraria server set at {server_path:?}");
+    }
 
     let listener = TcpListener::bind(ip).await?;
     axum::serve(listener, app)
