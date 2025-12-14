@@ -82,7 +82,7 @@ impl AppState {
 }
 
 pub static SERVER_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
-    let dir = std::env::var("SERVER_DIR").expect("no SERVER_DIR environment variable.");
+    let dir = std::env::var("SERVER_DIR").expect("no SERVER_DIR environment variable");
     let path = PathBuf::from(dir);
 
     assert!(path.exists(), "mc server dir does not exist");
@@ -156,7 +156,6 @@ async fn main() -> anyhow::Result<()> {
                 tracing::info!("{line}");
             }
         }
-
     } else if cfg!(feature = "terraria") {
         tracing::info!("terraria server set at {server_path:?}");
     }

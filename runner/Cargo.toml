@@ -14,7 +14,6 @@ tokio = { version = "1.48", features = ["fs", "macros", "process", "rt-multi-thr
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tower-http = { version = "0.6", features = ["timeout"] }
-kill_tree = { version = "0.2.4", features = ["tokio"] }
 
 common = { path = "../common" }
 children = { path = "../children" }
