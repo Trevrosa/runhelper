@@ -9,8 +9,10 @@ use common::Stats;
 use reqwest_websocket::Bytes;
 use tokio::sync::broadcast::Receiver;
 
+use super::AppState;
+
 /// forward the websocket from the local runner.
-pub async fn stats(ws: WebSocketUpgrade, State(state): super::AppState) -> Response {
+pub async fn stats(ws: WebSocketUpgrade, State(state): AppState) -> Response {
     let channel = state.stats.subscribe();
     ws.on_upgrade(|socket| handle_socket(socket, channel))
 }
