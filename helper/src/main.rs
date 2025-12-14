@@ -14,7 +14,7 @@ use axum::Router;
 use reqwest::Url;
 use reqwest_websocket::Bytes;
 use tokio::{net::TcpListener, sync::broadcast};
-use tower_http::{services::ServeDir, timeout::TimeoutLayer};
+use tower_http::{services::ServeDir, timeout::TimeoutLayer, trace::TraceLayer};
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;
 
@@ -55,18 +55,19 @@ impl AppState {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    if let Err(err) = dotenvy::dotenv() {
+        tracing::warn!("failed to read .env: {err}");
+    }
+
+    let filter = env::var(EnvFilter::DEFAULT_ENV)? + ",hyper_util=off";
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::builder()
                 .with_default_directive(LevelFilter::INFO.into())
-                .from_env_lossy(),
+                .parse_lossy(filter),
         )
         .compact()
         .init();
-
-    if let Err(err) = dotenvy::dotenv() {
-        tracing::warn!("failed to read .env: {err}");
-    }
 
     LazyLock::force(&RUNNER_ADDR);
 
@@ -83,6 +84,7 @@ async fn main() -> anyhow::Result<()> {
         .nest("/api", api::basic_auth())
         .nest("/api", api::stop_auth())
         .with_state(app_state.clone())
+        .layer(TraceLayer::new_for_http())
         .layer(TimeoutLayer::new(Duration::from_secs(5)));
 
     let port = env::var("HELPER_PORT")
