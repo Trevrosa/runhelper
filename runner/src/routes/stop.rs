@@ -1,19 +1,16 @@
 use std::{
     process::{ExitStatus, Stdio},
     sync::atomic::Ordering,
+    time::Duration,
 };
 
 use axum::extract::State;
 use reqwest::StatusCode;
 use tokio::process::Command;
 
-use crate::routes::AppState;
+use crate::{SERVER_TYPE, ServerType, routes::AppState};
 
-#[cfg(feature = "minecraft")]
-use std::time::Duration;
-#[cfg(feature = "minecraft")]
 const WAIT_TIME: Duration = Duration::from_secs(10);
-#[cfg(feature = "minecraft")]
 const WAIT_INCRS: Duration = Duration::from_millis(500);
 
 pub async fn stop(State(state): AppState) -> (StatusCode, &'static str) {
@@ -30,20 +27,7 @@ pub async fn stop(State(state): AppState) -> (StatusCode, &'static str) {
 
     state.server_stopping.store(true, Ordering::Release);
 
-    #[cfg(feature = "terraria")]
-    {
-        let pid = state.server_pid.load(Ordering::Relaxed);
-        if pid == 0 {
-            tracing::warn!("server is running, but pid is 0?");
-        } else {
-            kill(pid).await;
-        }
-
-        state.server_stopping.store(false, Ordering::Release);
-    }
-
-    #[cfg(feature = "minecraft")]
-    {
+    if *SERVER_TYPE == ServerType::Minecraft {
         if let Err(err) = state.server_stdin.send("/stop".to_string()) {
             tracing::warn!("failed to send /stop: {err}");
         } else {
@@ -86,6 +70,15 @@ pub async fn stop(State(state): AppState) -> (StatusCode, &'static str) {
 
             state.server_stopping.store(false, Ordering::Release);
         });
+    } else {
+        let pid = state.server_pid.load(Ordering::Relaxed);
+        if pid == 0 {
+            tracing::warn!("server is running, but pid is 0?");
+        } else {
+            kill(pid).await;
+        }
+
+        state.server_stopping.store(false, Ordering::Release);
     }
 
     (StatusCode::OK, "stopped server!")

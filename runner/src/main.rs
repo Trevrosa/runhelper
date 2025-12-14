@@ -2,9 +2,11 @@ mod routes;
 mod tasks;
 
 use std::{
+    env,
     fmt::Debug,
     net::{Ipv4Addr, SocketAddrV4},
     path::PathBuf,
+    str::FromStr,
     sync::{
         Arc, LazyLock,
         atomic::{AtomicBool, AtomicU32, Ordering},
@@ -82,12 +84,35 @@ impl AppState {
 }
 
 pub static SERVER_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
-    let dir = std::env::var("SERVER_DIR").expect("no SERVER_DIR environment variable");
+    let dir = env::var("SERVER_DIR").expect("no SERVER_DIR environment variable");
     let path = PathBuf::from(dir);
 
     assert!(path.exists(), "mc server dir does not exist");
 
     path
+});
+
+#[derive(Debug, PartialEq)]
+pub enum ServerType {
+    Minecraft,
+    Terraria,
+}
+
+impl FromStr for ServerType {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "minecraft" => Ok(Self::Minecraft),
+            "terraria" => Ok(Self::Terraria),
+            _ => Err(()),
+        }
+    }
+}
+
+pub static SERVER_TYPE: LazyLock<ServerType> = LazyLock::new(|| {
+    env::var("SERVER_TYPE")
+        .map(|v| v.parse().expect("server type not a valid value"))
+        .unwrap_or(ServerType::Minecraft)
 });
 
 #[tokio::main]
@@ -104,9 +129,11 @@ async fn main() -> anyhow::Result<()> {
         )
         .init();
 
-    let args: Vec<String> = std::env::args().collect();
+    let server_type = &*SERVER_TYPE;
+
+    let args: Vec<String> = env::args().collect();
     if args.len() == 3 && args[1] == "--wd" {
-        std::env::set_current_dir(&args[2]).expect("failed to set working dir");
+        env::set_current_dir(&args[2]).expect("failed to set working dir");
     }
 
     let (stats_tx, _rx) = broadcast::channel(16);
@@ -135,7 +162,7 @@ async fn main() -> anyhow::Result<()> {
         move || tasks::stats_refresher(&app_state)
     });
 
-    let port = std::env::var("RUNNER_PORT")
+    let port = env::var("RUNNER_PORT")
         .map(|p| p.parse().expect("configured port is not an int"))
         .unwrap_or(4321);
     let ip = SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, port);
@@ -143,7 +170,7 @@ async fn main() -> anyhow::Result<()> {
     let server_path = &*SERVER_PATH;
 
     tracing::info!("running server on :{port}");
-    if cfg!(feature = "minecraft") {
+    if server_type == &ServerType::Minecraft {
         tracing::info!("");
         let java_version = tokio::process::Command::new("java")
             .arg("--version")
@@ -156,7 +183,7 @@ async fn main() -> anyhow::Result<()> {
                 tracing::info!("{line}");
             }
         }
-    } else if cfg!(feature = "terraria") {
+    } else if server_type == &ServerType::Terraria {
         tracing::info!("terraria server set at {server_path:?}");
     }
 

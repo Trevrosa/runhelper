@@ -10,6 +10,7 @@ the binary can be run with the argument `--wd` to set the program's working dire
 
 ### environment variables
 
+- `SERVER_TYPE` should be the type of server (`minecraft` or `terraria`) (optional, default `minecraft`)
 - `SERVER_DIR` should be the path to the server.
 - `RUNNER_PORT` controls the port of the server (optional, default `4321`)
 - `SHOW_CONSOLE` (`true` or `false`) controls whether or not the minecraft server's console is shown in the runner's stdout. (optional, default `false`)

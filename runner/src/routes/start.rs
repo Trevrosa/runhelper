@@ -1,10 +1,5 @@
-#[cfg(all(feature = "minecraft", feature = "terraria"))]
-compile_error!("you can only have one of these features.");
-
-#[cfg(feature = "minecraft")]
 mod minecraft;
 // TODO: what about mac/linux?
-#[cfg(feature = "terraria")]
 mod terraria;
 
 use std::sync::atomic::Ordering;
@@ -13,7 +8,7 @@ use axum::extract::State;
 use reqwest::StatusCode;
 use tokio::io::AsyncWriteExt;
 
-use crate::{SERVER_PATH, tasks, warn_error};
+use crate::{SERVER_PATH, SERVER_TYPE, ServerType, tasks, warn_error};
 
 use super::AppState;
 
@@ -33,10 +28,11 @@ pub async fn start(State(state): AppState) -> (StatusCode, &'static str) {
 
     tracing::info!("got run request");
 
-    #[cfg(feature = "minecraft")]
-    let run = minecraft::run(server_path);
-    #[cfg(feature = "terraria")]
-    let run = terraria::run(server_path);
+    let run = if *SERVER_TYPE == ServerType::Minecraft {
+        minecraft::run(server_path)
+    } else {
+        terraria::run(server_path)
+    };
 
     let child = match run {
         Ok(child) => child,
