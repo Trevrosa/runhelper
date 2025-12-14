@@ -75,7 +75,11 @@ pub async fn start(State(state): AppState) -> (StatusCode, &'static str) {
     tokio::spawn(tasks::console_reader(state.console_channel.clone(), stderr));
 
     tokio::spawn(tasks::server_observer(state.clone(), child));
-    tokio::spawn(tasks::child_finder(state, parent));
+    
+    #[cfg(windows)]
+    if *SERVER_TYPE == ServerType::Terraria {
+        tokio::spawn(tasks::child_finder(state, parent));
+    }
 
     tracing::info!("server started!");
 
