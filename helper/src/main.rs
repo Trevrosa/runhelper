@@ -59,7 +59,8 @@ async fn main() -> anyhow::Result<()> {
         tracing::warn!("failed to read .env: {err}");
     }
 
-    let filter = env::var(EnvFilter::DEFAULT_ENV)? + ",hyper_util=off";
+    let filter =
+        env::var(EnvFilter::DEFAULT_ENV).unwrap_or_else(|_| String::new()) + ",hyper_util=off";
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::builder()
