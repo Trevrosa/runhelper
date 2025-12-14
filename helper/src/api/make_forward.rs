@@ -17,7 +17,7 @@ macro_rules! make_forward {
                     .send()
                     .await
                     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-                let status = axum::http::StatusCode::from_u16($name.status().as_u16())
+                let status = StatusCode::from_u16($name.status().as_u16())
                     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
                 let $name = $name
                     .text()
