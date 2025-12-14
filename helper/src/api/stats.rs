@@ -1,35 +1,39 @@
+use axum::{
+    extract::{
+        State, WebSocketUpgrade,
+        ws::{Message, WebSocket},
+    },
+    response::Response,
+};
 use common::Stats;
 use reqwest_websocket::Bytes;
-use rocket::{State, futures::SinkExt, get, tokio::sync::broadcast};
-use rocket_ws::{Channel, WebSocket};
+use tokio::sync::broadcast::Receiver;
+
+use super::AppState;
 
 /// forward the websocket from the local runner.
-#[get("/stats")]
-pub async fn stats(
-    ws: WebSocket,
-    stats_channel: &State<broadcast::Sender<Bytes>>,
-) -> Channel<'static> {
-    let mut stats_channel = stats_channel.subscribe();
+pub async fn stats(ws: WebSocketUpgrade, State(state): AppState) -> Response {
+    let channel = state.stats.subscribe();
+    ws.on_upgrade(|socket| handle_socket(socket, channel))
+}
 
-    ws.channel(move |mut stream| {
-        Box::pin(async move {
-            while let Ok(message) = stats_channel.recv().await {
-                let Ok(stats) = bitcode::deserialize::<Stats>(&message) else {
-                    tracing::warn!("failed to deserialize bitcode");
-                    continue;
-                };
-                let Ok(message) = serde_json::to_string(&stats) else {
-                    tracing::warn!("failed to serialize to json");
-                    continue;
-                };
+async fn handle_socket(mut socket: WebSocket, mut channel: Receiver<Bytes>) {
+    loop {
+        while let Ok(message) = channel.recv().await {
+            let Ok(stats) = bitcode::deserialize::<Stats>(&message) else {
+                tracing::warn!("failed to deserialize bitcode");
+                continue;
+            };
+            let Ok(message) = serde_json::to_string(&stats) else {
+                tracing::warn!("failed to deserialize to json");
+                continue;
+            };
 
-                if let Err(err) = stream.send(rocket_ws::Message::text(message)).await {
-                    tracing::warn!("{err}, closing socket");
-                    break;
-                }
+            if let Err(err) = socket.send(Message::Text(message.into())).await {
+                tracing::warn!("{err}, closing socket");
+                break;
             }
-            tracing::warn!("ws closed");
-            Ok(())
-        })
-    })
+        }
+        tracing::warn!("ws closed");
+    }
 }

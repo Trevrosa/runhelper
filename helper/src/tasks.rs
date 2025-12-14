@@ -1,13 +1,13 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
+use futures_util::StreamExt;
+use helper::UrlExt;
 use reqwest_websocket as reqwest_ws;
-use reqwest_ws::{Bytes, Message, RequestBuilderExt};
-use rocket::{
-    futures::StreamExt,
-    tokio::{self, sync::broadcast::Sender},
-};
+use reqwest_ws::{Message, RequestBuilderExt};
+use tokio::signal;
+use tracing::instrument;
 
-use crate::{RUNNER_ADDR, UrlExt};
+use crate::{AppState, RUNNER_ADDR};
 
 pub async fn websocket(
     client: &reqwest::Client,
@@ -26,13 +26,19 @@ pub async fn websocket(
 const WS_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// transmits the stats from the runner to a channel.
-pub async fn stats_helper(client: reqwest::Client, tx: Sender<Bytes>) {
+#[instrument(skip_all)]
+pub async fn stats_helper(state: Arc<AppState>) {
     loop {
-        let runner_ws = websocket(&client, RUNNER_ADDR.join_unchecked("stats")).await;
-        let Ok(mut runner_ws) = runner_ws else {
-            tracing::error!("failed to connect to stats, waiting {WS_TIMEOUT:?}..");
-            tokio::time::sleep(WS_TIMEOUT).await;
-            continue;
+        let runner_ws = websocket(&state.client, RUNNER_ADDR.join_unchecked("stats")).await;
+        let mut runner_ws = match runner_ws {
+            Ok(ws) => ws,
+            Err(err) => {
+                if let reqwest_websocket::Error::Reqwest(..) = err {
+                    tracing::error!("failed to connect, waiting {WS_TIMEOUT:?}..");
+                } else { tracing::debug!("failed to connect, waiting {WS_TIMEOUT:?}..") }
+                tokio::time::sleep(WS_TIMEOUT).await;
+                continue;
+            }
         };
 
         tracing::info!("connected to stats");
@@ -47,7 +53,7 @@ pub async fn stats_helper(client: reqwest::Client, tx: Sender<Bytes>) {
             };
 
             if let Message::Binary(bytes) = message {
-                if let Err(err) = tx.send(bytes) {
+                if let Err(err) = state.stats.send(bytes) {
                     tracing::warn!("failed to broadcast: {err}");
                 }
             } else {
@@ -61,13 +67,19 @@ pub async fn stats_helper(client: reqwest::Client, tx: Sender<Bytes>) {
 }
 
 /// transmits the stats from the runner to a channel.
-pub async fn console_helper(client: reqwest::Client, tx: Sender<String>) {
+#[instrument(skip_all)]
+pub async fn console_helper(state: Arc<AppState>) {
     loop {
-        let runner_ws = websocket(&client, RUNNER_ADDR.join_unchecked("console")).await;
-        let Ok(mut runner_ws) = runner_ws else {
-            tracing::error!("failed to connect to console, waiting {WS_TIMEOUT:?}..");
-            tokio::time::sleep(WS_TIMEOUT).await;
-            continue;
+        let runner_ws = websocket(&state.client, RUNNER_ADDR.join_unchecked("console")).await;
+        let mut runner_ws = match runner_ws {
+            Ok(ws) => ws,
+            Err(err) => {
+                if let reqwest_websocket::Error::Reqwest(..) = err {
+                    tracing::error!("failed to connect, waiting {WS_TIMEOUT:?}..");
+                } else { tracing::debug!("failed to connect, waiting {WS_TIMEOUT:?}..") }
+                tokio::time::sleep(WS_TIMEOUT).await;
+                continue;
+            }
         };
 
         tracing::info!("connected to console");
@@ -82,7 +94,7 @@ pub async fn console_helper(client: reqwest::Client, tx: Sender<String>) {
             };
 
             if let Message::Text(text) = message {
-                if let Err(err) = tx.send(text) {
+                if let Err(err) = state.console.send(text) {
                     tracing::warn!("failed to broadcast: {err}");
                 }
             } else {
@@ -93,4 +105,32 @@ pub async fn console_helper(client: reqwest::Client, tx: Sender<String>) {
         tracing::warn!("console ws closed, waiting {WS_TIMEOUT:?}..");
         tokio::time::sleep(WS_TIMEOUT).await;
     }
+}
+
+/// ensures graceful shutdown
+#[instrument(skip_all)]
+pub async fn shutdown() {
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        () = ctrl_c => {},
+        () = terminate => {},
+    }
+
+    tracing::info!("shutting down..");
 }

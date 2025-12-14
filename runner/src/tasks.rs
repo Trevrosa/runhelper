@@ -4,6 +4,7 @@ use std::{
     time::Duration,
 };
 
+use children::get_children;
 use common::Stats;
 use sysinfo::{Cpu, MemoryRefreshKind, Pid, ProcessRefreshKind, RefreshKind, System};
 use tokio::{
@@ -86,6 +87,8 @@ pub fn stats_refresher(app_state: &Arc<AppState>) {
             server_disk_usage: None,
         };
 
+        // system.processes_by_exact_name(name)
+
         let pid = app_state.server_pid.load(Ordering::Relaxed);
         if pid != 0 {
             let pid = Pid::from_u32(pid);
@@ -161,13 +164,13 @@ pub async fn console_reader<C: AsyncRead + Unpin>(tx: broadcast::Sender<String>,
             let _ = log.write_u8(b'\n').await;
         }
 
-        // its from /list, safe to send raw.
-        if line.contains("]: There are") {
-            if let Err(err) = tx.send(line) {
-                tracing::warn!("failed to broadcast: {err}");
-            }
-            continue;
-        }
+        // // its from /list, safe to send raw.
+        // if line.contains("]: There are") {
+        //     if let Err(err) = tx.send(line) {
+        //         tracing::warn!("failed to broadcast: {err}");
+        //     }
+        //     continue;
+        // }
 
         // hide ips and coords
         let masked = line
@@ -181,4 +184,27 @@ pub async fn console_reader<C: AsyncRead + Unpin>(tx: broadcast::Sender<String>,
     }
 
     tracing::warn!("server stdout closed");
+}
+
+/// gets the real pid after it spawns
+pub async fn child_finder(state: Arc<AppState>, parent: u32) {
+    loop {
+        tokio::time::sleep(Duration::from_secs(1)).await;
+
+        let Ok(children) = get_children(parent) else {
+            tracing::warn!("failed to get server children");
+            continue;
+        };
+
+        let child = children.iter().find(|e| e.name == "dotnet.exe");
+        let Some(child) = child else {
+            tracing::warn!("real child not spawned yet");
+            continue;
+        };
+
+        tracing::info!("found real child! ({})", child.pid);
+
+        state.server_pid.store(child.pid, Ordering::Release);
+        return;
+    }
 }

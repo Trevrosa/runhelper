@@ -14,7 +14,7 @@ use std::{
 
 use axum::{Router, routing::get};
 use common::Stats;
-use tokio::{net::TcpListener, process::Command, sync::broadcast, task};
+use tokio::{net::TcpListener, sync::broadcast, task};
 use tower_http::timeout::TimeoutLayer;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;
@@ -140,19 +140,19 @@ async fn main() -> anyhow::Result<()> {
     let server_path = &*SERVER_PATH;
 
     tracing::info!("running server on :{port}");
-    tracing::info!("mc server set at {server_path:?}");
-    tracing::info!("");
-    let java_version = Command::new("java")
-        .arg("--version")
-        .output()
-        .await
-        .expect("`java --version` failed to run");
-    let java_version = str::from_utf8(&java_version.stdout).expect("stdout not utf8");
-    for line in java_version.split('\n') {
-        if !line.is_empty() {
-            tracing::info!("{line}");
-        }
-    }
+    tracing::info!("terraria server set at {server_path:?}");
+    // tracing::info!("");
+    // let java_version = Command::new("java")
+    //     .arg("--version")
+    //     .output()
+    //     .await
+    //     .expect("`java --version` failed to run");
+    // let java_version = str::from_utf8(&java_version.stdout).expect("stdout not utf8");
+    // for line in java_version.split('\n') {
+    //     if !line.is_empty() {
+    //         tracing::info!("{line}");
+    //     }
+    // }
 
     let listener = TcpListener::bind(ip).await?;
     axum::serve(listener, app)

@@ -1,32 +1,24 @@
 mod api;
-mod authorized;
-mod file_server;
 mod tasks;
 
 use std::{
     env,
+    net::{Ipv4Addr, SocketAddrV4},
     str::FromStr,
-    sync::{LazyLock, atomic::AtomicBool},
+    sync::{Arc, LazyLock},
+    time::Duration,
 };
 
 use anyhow::Context;
+use axum::Router;
 use reqwest::Url;
 use reqwest_websocket::Bytes;
-use rocket::tokio::{
-    self,
-    sync::broadcast::{self},
-};
-use rocket::{Config, routes};
+use tokio::{net::TcpListener, sync::broadcast};
+use tower_http::{services::ServeDir, timeout::TimeoutLayer, trace::TraceLayer};
+use tracing::level_filters::LevelFilter;
+use tracing_subscriber::EnvFilter;
 
-use crate::{
-    api::{
-        console::console, ip::ip, list::list, ping::ping, running::running, start::start,
-        stats::stats, stop::stop, wake::wake,
-    },
-    authorized::{BASIC_TOKEN, STOP_TOKEN},
-    file_server::BrServer,
-    tasks::{console_helper, stats_helper},
-};
+use crate::tasks::{console_helper, stats_helper};
 
 #[cfg(not(target_env = "msvc"))]
 #[global_allocator]
@@ -45,56 +37,68 @@ fn get_runner_addr() -> anyhow::Result<Url> {
 
 pub static RUNNER_ADDR: LazyLock<Url> = LazyLock::new(|| get_runner_addr().unwrap());
 
-trait UrlExt {
-    fn join_unchecked(&self, input: &str) -> Self;
+struct AppState {
+    client: reqwest::Client,
+    stats: broadcast::Sender<Bytes>,
+    console: broadcast::Sender<String>,
 }
 
-impl UrlExt for Url {
-    fn join_unchecked(&self, input: &str) -> Self {
-        self.join(input).unwrap()
+impl AppState {
+    fn new(stats: broadcast::Sender<Bytes>, console: broadcast::Sender<String>) -> Self {
+        Self {
+            client: reqwest::Client::new(),
+            stats,
+            console,
+        }
     }
 }
 
-#[rocket::main]
-#[allow(clippy::result_large_err)]
-async fn main() -> Result<(), rocket::Error> {
-    tracing_subscriber::fmt().without_time().compact().init();
-
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     if let Err(err) = dotenvy::dotenv() {
         tracing::warn!("failed to read .env: {err}");
     }
 
-    // initialize the LazyCells
-    let _ = &*BASIC_TOKEN;
-    let _ = &*STOP_TOKEN;
+    let filter = env::var(EnvFilter::DEFAULT_ENV)? + ",hyper_util=off";
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::builder()
+                .with_default_directive(LevelFilter::INFO.into())
+                .parse_lossy(filter),
+        )
+        .compact()
+        .init();
 
-    let config = Config {
-        port: 1234,
-        ..Default::default()
-    };
-
-    let client = reqwest::Client::new();
+    LazyLock::force(&RUNNER_ADDR);
 
     let (stats_tx, _rx) = broadcast::channel::<Bytes>(16);
     let (console_tx, _rx) = broadcast::channel::<String>(16);
+    let app_state = Arc::new(AppState::new(stats_tx, console_tx));
 
-    let state = (client.clone(), stats_tx.clone());
-    tokio::spawn(stats_helper(state.0, state.1));
-    let state = (client.clone(), console_tx.clone());
-    tokio::spawn(console_helper(state.0, state.1));
+    tokio::spawn(stats_helper(app_state.clone()));
+    tokio::spawn(console_helper(app_state.clone()));
 
-    let _ = rocket::custom(config)
-        .mount("/", BrServer::new("./static"))
-        .mount(
-            "/api",
-            routes![ip, start, stop, ping, stats, console, wake, list, running],
-        )
-        .manage(client)
-        .manage(stats_tx)
-        .manage(console_tx)
-        .manage(AtomicBool::new(false))
-        .launch()
-        .await;
+    let app = Router::new()
+        .fallback_service(ServeDir::new("static").precompressed_br())
+        .nest("/api", api::unauthed())
+        .nest("/api", api::basic_auth())
+        .nest("/api", api::stop_auth())
+        .with_state(app_state.clone())
+        .layer(TraceLayer::new_for_http())
+        .layer(TimeoutLayer::new(Duration::from_secs(5)));
+
+    let port = env::var("HELPER_PORT")
+        .map(|p| p.parse().expect("configured port is not an int"))
+        .unwrap_or(1234);
+    let ip = SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, port);
+
+    tracing::info!("running server on :{port}");
+    tracing::info!("runner address set at {}", *RUNNER_ADDR);
+
+    let listener = TcpListener::bind(ip).await?;
+    axum::serve(listener, app)
+        .with_graceful_shutdown(tasks::shutdown())
+        .await?;
 
     Ok(())
 }

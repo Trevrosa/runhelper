@@ -1,36 +1,21 @@
-mod forge;
-mod paper;
+#[cfg(all(feature = "minecraft", feature = "terraria"))]
+compile_error!("you can only have one of these features.");
 
-use std::{path::Path, process::Stdio, sync::atomic::Ordering};
+#[cfg(feature = "minecraft")]
+mod minecraft;
+// TODO: what about mac/linux?
+#[cfg(feature = "terraria")]
+mod terraria;
+
+use std::sync::atomic::Ordering;
 
 use axum::extract::State;
 use reqwest::StatusCode;
-use tokio::process::Command;
+use tokio::io::AsyncWriteExt;
 
 use crate::{SERVER_PATH, tasks, warn_error};
 
 use super::AppState;
-
-#[derive(Debug)]
-enum ServerType {
-    Forge,
-    Paper,
-    Vanilla,
-}
-
-impl ServerType {
-    fn detect(server_path: &Path) -> Option<Self> {
-        if server_path.join("libraries/net/minecraftforge").exists() {
-            Some(Self::Forge)
-        } else if server_path.join("libraries/com/velocitypowered").exists() {
-            Some(Self::Paper)
-        } else if server_path.join("libraries/com/mojang").exists() {
-            Some(Self::Vanilla)
-        } else {
-            None
-        }
-    }
-}
 
 pub async fn start(State(state): AppState) -> (StatusCode, &'static str) {
     if state.server_running.load(Ordering::Relaxed) {
@@ -47,37 +32,19 @@ pub async fn start(State(state): AppState) -> (StatusCode, &'static str) {
     let server_path = SERVER_PATH.as_path();
 
     tracing::info!("got run request");
-    let Some(server_type) = ServerType::detect(server_path) else {
-        state.server_starting.store(false, Ordering::Release);
-        tracing::warn!("no server detected at the configured path");
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "no server at the configured path!",
-        );
-    };
-    tracing::debug!("detected server type {server_type:?}");
 
-    let args = match server_type {
-        ServerType::Forge => forge::args(server_path),
-        ServerType::Paper => paper::args(server_path),
-        ServerType::Vanilla => todo!(),
-    };
+    #[cfg(feature = "minecraft")]
+    let run = minecraft::run(server_path);
+    #[cfg(feature = "terraria")]
+    let run = terraria::run(server_path);
 
-    let args = match args {
-        Ok(args) => args,
+    let child = match run {
+        Ok(child) => child,
         Err(err) => {
             state.server_starting.store(false, Ordering::Release);
-            return (StatusCode::INTERNAL_SERVER_ERROR, err);
+            return err;
         }
     };
-
-    let child = Command::new("java")
-        .args(args)
-        .stdout(Stdio::piped())
-        .stdin(Stdio::piped())
-        .stderr(Stdio::piped())
-        .current_dir(server_path)
-        .spawn();
 
     let Ok(mut child) = child else {
         state.server_starting.store(false, Ordering::Release);
@@ -88,13 +55,12 @@ pub async fn start(State(state): AppState) -> (StatusCode, &'static str) {
     state.server_starting.store(false, Ordering::Release);
     state.server_running.store(true, Ordering::Release);
 
-    let Some(pid) = child.id() else {
+    // FIXME: ram/cpu stats are wrong because of pid
+    let Some(parent) = child.id() else {
         warn_error!("could not get server pid");
     };
 
-    state.server_pid.store(pid, Ordering::Release);
-
-    let Some(stdin) = child.stdin.take() else {
+    let Some(mut stdin) = child.stdin.take() else {
         warn_error!("could not get server stdin");
     };
     let Some(stdout) = child.stdout.take() else {
@@ -104,11 +70,15 @@ pub async fn start(State(state): AppState) -> (StatusCode, &'static str) {
         warn_error!("could not get server stdin");
     };
 
+    // FIXME: dont just ignore error
+    let _ = stdin.write_u8(b'\n').await;
+
     tokio::spawn(tasks::console_writer(state.server_stdin.subscribe(), stdin));
     tokio::spawn(tasks::console_reader(state.console_channel.clone(), stdout));
     tokio::spawn(tasks::console_reader(state.console_channel.clone(), stderr));
 
-    tokio::spawn(tasks::server_observer(state, child));
+    tokio::spawn(tasks::server_observer(state.clone(), child));
+    tokio::spawn(tasks::child_finder(state, parent));
 
     tracing::info!("server started!");
 
