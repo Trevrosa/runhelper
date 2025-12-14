@@ -12,7 +12,7 @@ use std::{
     time::Duration,
 };
 
-use axum::{Router, routing::get};
+use axum::{Router, http::StatusCode, routing::get};
 use common::Stats;
 use tokio::{net::TcpListener, sync::broadcast, task};
 use tower_http::timeout::TimeoutLayer;
@@ -125,7 +125,10 @@ async fn main() -> anyhow::Result<()> {
         .route("/stats", get(stats))
         .route("/console", get(console))
         .with_state(app_state.clone())
-        .layer(TimeoutLayer::new(Duration::from_secs(5)));
+        .layer(TimeoutLayer::with_status_code(
+            StatusCode::REQUEST_TIMEOUT,
+            Duration::from_secs(5),
+        ));
 
     task::spawn_blocking({
         let app_state = app_state.clone();

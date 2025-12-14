@@ -10,7 +10,7 @@ use std::{
 };
 
 use anyhow::Context;
-use axum::Router;
+use axum::{Router, http::StatusCode};
 use reqwest::Url;
 use reqwest_websocket::Bytes;
 use tokio::{net::TcpListener, sync::broadcast};
@@ -86,7 +86,10 @@ async fn main() -> anyhow::Result<()> {
         .nest("/api", api::stop_auth())
         .with_state(app_state.clone())
         .layer(TraceLayer::new_for_http())
-        .layer(TimeoutLayer::new(Duration::from_secs(5)));
+        .layer(TimeoutLayer::with_status_code(
+            StatusCode::REQUEST_TIMEOUT,
+            Duration::from_secs(5),
+        ));
 
     let port = env::var("HELPER_PORT")
         .map(|p| p.parse().expect("configured port is not an int"))

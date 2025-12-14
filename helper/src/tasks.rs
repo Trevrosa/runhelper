@@ -35,7 +35,9 @@ pub async fn stats_helper(state: Arc<AppState>) {
             Err(err) => {
                 if let reqwest_websocket::Error::Reqwest(..) = err {
                     tracing::error!("failed to connect, waiting {WS_TIMEOUT:?}..");
-                } else { tracing::debug!("failed to connect, waiting {WS_TIMEOUT:?}..") }
+                } else {
+                    tracing::debug!("failed to connect, waiting {WS_TIMEOUT:?}..");
+                }
                 tokio::time::sleep(WS_TIMEOUT).await;
                 continue;
             }
@@ -76,7 +78,9 @@ pub async fn console_helper(state: Arc<AppState>) {
             Err(err) => {
                 if let reqwest_websocket::Error::Reqwest(..) = err {
                     tracing::error!("failed to connect, waiting {WS_TIMEOUT:?}..");
-                } else { tracing::debug!("failed to connect, waiting {WS_TIMEOUT:?}..") }
+                } else {
+                    tracing::debug!("failed to connect, waiting {WS_TIMEOUT:?}..");
+                }
                 tokio::time::sleep(WS_TIMEOUT).await;
                 continue;
             }
