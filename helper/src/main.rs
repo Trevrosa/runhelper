@@ -15,7 +15,6 @@ use reqwest::Url;
 use reqwest_websocket::Bytes;
 use tokio::{net::TcpListener, sync::broadcast};
 use tower_http::{services::ServeDir, timeout::TimeoutLayer, trace::TraceLayer};
-use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;
 
 use crate::tasks::{console_helper, stats_helper};
@@ -60,13 +59,9 @@ async fn main() -> anyhow::Result<()> {
     }
 
     let filter =
-        env::var(EnvFilter::DEFAULT_ENV).unwrap_or_else(|_| String::new()) + ",hyper_util=off";
+        env::var(EnvFilter::DEFAULT_ENV).unwrap_or_else(|_| String::new()) + ",hyper_util=off,info";
     tracing_subscriber::fmt()
-        .with_env_filter(
-            EnvFilter::builder()
-                .with_default_directive(LevelFilter::INFO.into())
-                .parse_lossy(filter),
-        )
+        .with_env_filter(EnvFilter::builder().parse_lossy(filter))
         .compact()
         .init();
 
