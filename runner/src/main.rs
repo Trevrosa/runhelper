@@ -117,6 +117,11 @@ pub static SERVER_TYPE: LazyLock<ServerType> = LazyLock::new(|| {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    let args: Vec<String> = env::args().collect();
+    if args.len() == 3 && args[1] == "--wd" {
+        env::set_current_dir(&args[2]).expect("failed to set working dir");
+    }
+
     if let Err(err) = dotenvy::dotenv() {
         tracing::warn!("could not load .env: {err}");
     }
@@ -130,11 +135,6 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     let server_type = &*SERVER_TYPE;
-
-    let args: Vec<String> = env::args().collect();
-    if args.len() == 3 && args[1] == "--wd" {
-        env::set_current_dir(&args[2]).expect("failed to set working dir");
-    }
 
     let (stats_tx, _rx) = broadcast::channel(16);
     let (console_tx, _rx) = broadcast::channel(16);
