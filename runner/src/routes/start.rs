@@ -52,8 +52,7 @@ pub async fn start(State(state): AppState) -> (StatusCode, &'static str) {
     state.server_starting.store(false, Ordering::Release);
     state.server_running.store(true, Ordering::Release);
 
-    // FIXME: ram/cpu stats are wrong because of pid
-    let Some(parent) = child.id() else {
+    let Some(pid) = child.id() else {
         warn_error!("could not get server pid");
     };
 
@@ -67,19 +66,26 @@ pub async fn start(State(state): AppState) -> (StatusCode, &'static str) {
         warn_error!("could not get server stdin");
     };
 
-    // FIXME: dont just ignore error
-    let _ = stdin.write_u8(b'\n').await;
+    if *SERVER_TYPE == ServerType::Terraria {
+        if cfg!(windows) {
+            tokio::spawn(tasks::child_finder(state.clone(), pid));
+        } else {
+            state.server_pid.store(pid, Ordering::Release);
+        }
+
+        if let Err(err) = stdin.write_u8(b'\n').await {
+            tracing::warn!("failed to write to stdin: {err}");
+        };
+    } else {
+        state.server_pid.store(pid, Ordering::Release);
+    }
+
 
     tokio::spawn(tasks::console_writer(state.server_stdin.subscribe(), stdin));
     tokio::spawn(tasks::console_reader(state.console_channel.clone(), stdout));
     tokio::spawn(tasks::console_reader(state.console_channel.clone(), stderr));
 
     tokio::spawn(tasks::server_observer(state.clone(), child));
-    
-    #[cfg(windows)]
-    if *SERVER_TYPE == ServerType::Terraria {
-        tokio::spawn(tasks::child_finder(state, parent));
-    }
 
     tracing::info!("server started!");
 
