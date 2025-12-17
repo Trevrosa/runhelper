@@ -15,7 +15,7 @@ use tokio::{
 };
 use tracing::instrument;
 
-use crate::AppState;
+use crate::{AppState, SERVER_TYPE, ServerType};
 
 /// how many times to wait for the server to shutdown
 const SERVER_SHUTDOWN_RETRIES: u32 = 3;
@@ -164,13 +164,15 @@ pub async fn console_reader<C: AsyncRead + Unpin>(tx: broadcast::Sender<String>,
             let _ = log.write_u8(b'\n').await;
         }
 
-        // // its from /list, safe to send raw.
-        // if line.contains("]: There are") {
-        //     if let Err(err) = tx.send(line) {
-        //         tracing::warn!("failed to broadcast: {err}");
-        //     }
-        //     continue;
-        // }
+        if *SERVER_TYPE == ServerType::Minecraft {
+            // its from /list, safe to send raw.
+            if line.contains("]: There are") {
+                if let Err(err) = tx.send(line) {
+                    tracing::warn!("failed to broadcast: {err}");
+                }
+                continue;
+            }
+        }
 
         // hide ips and coords
         let masked = line
@@ -187,9 +189,15 @@ pub async fn console_reader<C: AsyncRead + Unpin>(tx: broadcast::Sender<String>,
 }
 
 /// gets the real pid after it spawns
+#[instrument(skip_all)]
 pub async fn child_finder(state: Arc<AppState>, parent: u32) {
     loop {
         tokio::time::sleep(Duration::from_secs(1)).await;
+
+        if !state.server_running.load(Ordering::Acquire) {
+            tracing::warn!("server not running, stopping");
+            break;
+        }
 
         let Ok(children) = get_children(parent) else {
             tracing::warn!("failed to get server children");

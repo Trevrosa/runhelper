@@ -12,14 +12,13 @@ pub fn command(server_path: &Path) -> Command {
     let mut cmd = Command::new(exe);
 
     if cfg!(windows) {
-        cmd.arg(server_path.join("start-tModLoaderServer.sh"))
+        cmd.arg("bash")
             .env("WINDOWS_MAJOR", "10")
             .env("WINDOWS_MINOR", "0");
-    } else {
-        cmd.arg(server_path.join("start-tModLoaderServer.sh"));
-    };
+    }
 
-    cmd.arg("-config")
+    cmd.arg(server_path.join("start-tModLoaderServer.sh"))
+        .arg("-config")
         .arg(
             std::env::current_dir()
                 .unwrap_or_else(|_| "./".into())

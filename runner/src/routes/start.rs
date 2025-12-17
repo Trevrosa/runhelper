@@ -80,7 +80,6 @@ pub async fn start(State(state): AppState) -> (StatusCode, &'static str) {
         state.server_pid.store(pid, Ordering::Release);
     }
 
-
     tokio::spawn(tasks::console_writer(state.server_stdin.subscribe(), stdin));
     tokio::spawn(tasks::console_reader(state.console_channel.clone(), stdout));
     tokio::spawn(tasks::console_reader(state.console_channel.clone(), stderr));
