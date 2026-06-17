@@ -1,8 +1,12 @@
+#[cfg(windows)]
+use std::time::SystemTime;
 use std::{path::Path, process::Stdio};
 
 use tokio::process::Command;
 
-pub fn command(server_path: &Path) -> Command {
+use crate::ServerInfo;
+
+pub(super) fn command(server_path: &Path) -> Command {
     let exe = if cfg!(windows) {
         server_path.join("LaunchUtils/busybox64.exe")
     } else {
@@ -30,4 +34,21 @@ pub fn command(server_path: &Path) -> Command {
         .current_dir(server_path);
 
     cmd
+}
+
+#[cfg(windows)]
+pub(super) fn info(server_path: &Path, start_time: SystemTime) -> Result<ServerInfo, &'static str> {
+    let version = version(server_path).map_err(|_| "could not get version from file")?;
+
+    Ok(ServerInfo {
+        version,
+        start_time,
+        mods: vec![],
+    })
+}
+
+#[cfg(windows)]
+fn version(server_path: &Path) -> anyhow::Result<String> {
+    use win32_version_info::VersionInfo;
+    Ok(VersionInfo::from_file(server_path.join("tModLoader.dll"))?.file_version)
 }

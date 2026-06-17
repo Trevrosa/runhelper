@@ -1,6 +1,8 @@
-use std::{env, fs::DirEntry, path::Path};
+use std::{env, fs::DirEntry, path::Path, time::SystemTime};
 
-pub fn args(server_path: &Path) -> Result<Vec<String>, &'static str> {
+use crate::ServerInfo;
+
+pub(super) fn args(server_path: &Path) -> Result<Vec<String>, &'static str> {
     let mut args = Vec::new();
 
     if server_path.join("user_jvm_args.txt").exists() {
@@ -46,4 +48,12 @@ pub fn args(server_path: &Path) -> Result<Vec<String>, &'static str> {
     args.push("nogui".to_string());
 
     Ok(args)
+}
+
+pub(super) fn info(server_path: &Path, start_time: SystemTime) -> Result<ServerInfo, &'static str> {
+    super::info(
+        start_time,
+        &server_path.join("versions"),
+        &server_path.join("plugins"),
+    )
 }

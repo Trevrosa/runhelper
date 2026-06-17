@@ -1022,12 +1022,14 @@ dependencies = [
  "dotenvy",
  "mimalloc",
  "reqwest",
+ "serde",
  "sysinfo",
  "tikv-jemallocator",
  "tokio",
  "tower-http",
  "tracing",
  "tracing-subscriber",
+ "win32-version-info",
 ]
 
 [[package]]
@@ -1734,6 +1736,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b2878ef029c47c6e8cf779119f20fcf52bde7ad42a731b2a304bc221df17571e"
 dependencies = [
  "rustls-pki-types",
+]
+
+[[package]]
+name = "win32-version-info"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09d6aa4fa4f0affd222285ff3a2512b1d1dbd9bdca940f6a1ba77c61c65f9578"
+dependencies = [
+ "windows 0.62.2",
 ]
 
 [[package]]

@@ -19,11 +19,11 @@ use tracing_subscriber::EnvFilter;
 
 use crate::tasks::{console_helper, stats_helper};
 
-#[cfg(not(target_env = "msvc"))]
+#[cfg(not(windows))]
 #[global_allocator]
 static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
-#[cfg(target_env = "msvc")]
+#[cfg(windows)]
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 

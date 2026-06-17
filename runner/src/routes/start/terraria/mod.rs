@@ -1,6 +1,8 @@
 use axum::http::StatusCode;
-use std::path::Path;
+use std::{path::Path, time::SystemTime};
 use tokio::process::Child;
+
+use crate::ServerInfo;
 
 pub mod tmodloader;
 
@@ -22,7 +24,9 @@ impl ServerType {
     }
 }
 
-pub fn run(server_path: &Path) -> Result<tokio::io::Result<Child>, (StatusCode, &'static str)> {
+pub fn run(
+    server_path: &Path,
+) -> Result<(tokio::io::Result<Child>, ServerInfo), (StatusCode, &'static str)> {
     let Some(server_type) = ServerType::detect(server_path) else {
         tracing::warn!("no server detected at the configured path");
         return Err((
@@ -37,7 +41,18 @@ pub fn run(server_path: &Path) -> Result<tokio::io::Result<Child>, (StatusCode, 
         ServerType::Vanilla => todo!(),
     };
 
+    let start_time = SystemTime::now();
+    let info = match server_type {
+        ServerType::TModLoader => tmodloader::info(server_path, start_time),
+        ServerType::Vanilla => todo!(),
+    };
+
+    let info = match info {
+        Ok(info) => info,
+        Err(err) => return Err((StatusCode::INTERNAL_SERVER_ERROR, err)),
+    };
+
     let child = cmd.spawn();
 
-    Ok(child)
+    Ok((child, info))
 }

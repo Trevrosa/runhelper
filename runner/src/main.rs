@@ -11,23 +11,28 @@ use std::{
         Arc, LazyLock,
         atomic::{AtomicBool, AtomicU32, Ordering},
     },
-    time::Duration,
+    time::{Duration, SystemTime},
 };
 
 use axum::{Router, http::StatusCode, routing::get};
 use common::Stats;
-use tokio::{net::TcpListener, sync::broadcast, task};
+use serde::Serialize;
+use tokio::{
+    net::TcpListener,
+    sync::{RwLock, broadcast},
+    task,
+};
 use tower_http::timeout::TimeoutLayer;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;
 
-use crate::routes::{console, exec, ip, list, ping, running, start, stats, stop};
+use crate::routes::{console, exec, info, ip, list, ping, running, start, stats, stop};
 
-#[cfg(not(target_env = "msvc"))]
+#[cfg(not(windows))]
 #[global_allocator]
 static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
-#[cfg(target_env = "msvc")]
+#[cfg(windows)]
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
@@ -44,6 +49,15 @@ struct AppState {
     /// the server is requested to be stopped
     server_stopping: AtomicBool,
     server_stdin: broadcast::Sender<String>,
+    server_info: RwLock<Option<ServerInfo>>,
+}
+
+#[derive(Serialize, Debug, Clone)]
+struct ServerInfo {
+    start_time: SystemTime,
+    version: String,
+    /// list of raw filenames
+    mods: Vec<String>,
 }
 
 impl Debug for AppState {
@@ -53,6 +67,7 @@ impl Debug for AppState {
             .field("server_starting", &self.server_starting)
             .field("server_running", &self.server_running)
             .field("server_stopping", &self.server_stopping)
+            .field("server_info", &self.server_info)
             .finish_non_exhaustive()
     }
 }
@@ -72,6 +87,7 @@ impl AppState {
             server_stopping: AtomicBool::new(false),
             server_pid: AtomicU32::new(0),
             server_stdin: stdin,
+            server_info: RwLock::new(None),
         }
     }
 
@@ -110,9 +126,9 @@ impl FromStr for ServerType {
 }
 
 pub static SERVER_TYPE: LazyLock<ServerType> = LazyLock::new(|| {
-    env::var("SERVER_TYPE")
-        .map(|v| v.parse().expect("server type not a valid value"))
-        .unwrap_or(ServerType::Minecraft)
+    env::var("SERVER_TYPE").map_or(ServerType::Minecraft, |v| {
+        v.parse().expect("server type not a valid value")
+    })
 });
 
 #[tokio::main]
@@ -151,6 +167,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/exec/{*cmd}", get(exec))
         .route("/stats", get(stats))
         .route("/console", get(console))
+        .route("/info", get(info))
         .with_state(app_state.clone())
         .layer(TimeoutLayer::with_status_code(
             StatusCode::REQUEST_TIMEOUT,
@@ -162,9 +179,8 @@ async fn main() -> anyhow::Result<()> {
         move || tasks::stats_refresher(&app_state)
     });
 
-    let port = env::var("RUNNER_PORT")
-        .map(|p| p.parse().expect("configured port is not an int"))
-        .unwrap_or(4321);
+    let port =
+        env::var("RUNNER_PORT").map_or(4321, |p| p.parse().expect("configured port is not an int"));
     let ip = SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, port);
 
     let server_path = &*SERVER_PATH;

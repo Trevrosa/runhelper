@@ -35,13 +35,15 @@ pub async fn start(State(state): AppState) -> (StatusCode, &'static str) {
         terraria::run(server_path)
     };
 
-    let child = match run {
-        Ok(child) => child,
+    let (child, info) = match run {
+        Ok((child, info)) => (child, info),
         Err(err) => {
             state.server_starting.store(false, Ordering::Release);
             return err;
         }
     };
+
+    state.server_info.write().await.replace(info);
 
     let Ok(mut child) = child else {
         state.server_starting.store(false, Ordering::Release);
@@ -75,7 +77,7 @@ pub async fn start(State(state): AppState) -> (StatusCode, &'static str) {
 
         if let Err(err) = stdin.write_u8(b'\n').await {
             tracing::warn!("failed to write to stdin: {err}");
-        };
+        }
     } else {
         state.server_pid.store(pid, Ordering::Release);
     }

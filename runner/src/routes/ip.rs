@@ -1,7 +1,5 @@
 use axum::{extract::State, http::StatusCode};
 
-use crate::{SERVER_TYPE, ServerType};
-
 use super::AppState;
 
 /// returns the server's ip.
@@ -21,5 +19,5 @@ pub async fn ip(State(state): AppState) -> Result<String, (StatusCode, &'static 
         ));
     };
 
-    Ok(format!("{ip}"))
+    Ok(ip)
 }

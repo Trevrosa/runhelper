@@ -28,6 +28,9 @@ pub use ping::ping;
 mod console;
 pub use console::console;
 
+mod info;
+pub use info::info;
+
 /// warn `msg`, then return an `INTERNAL_SERVER_ERROR` with `msg`
 #[macro_export]
 macro_rules! warn_error {

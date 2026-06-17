@@ -20,8 +20,8 @@ wake-on-lan = "0.2"
 
 common = { path = "../common" }
 
-[target.'cfg(target_env = "msvc")'.dependencies]
+[target.'cfg(windows)'.dependencies]
 mimalloc = "0.1"
 
-[target.'cfg(not(target_env = "msvc"))'.dependencies]
+[target.'cfg(not(windows))'.dependencies]
 tikv-jemallocator = "0.6"

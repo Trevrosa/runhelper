@@ -1,6 +1,11 @@
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    time::SystemTime,
+};
 
 use anyhow::anyhow;
+
+use crate::ServerInfo;
 
 pub fn find_platform_args(server_path: &Path) -> anyhow::Result<PathBuf> {
     let forge_dir = server_path.join("libraries/net/minecraftforge/forge/");
@@ -41,4 +46,12 @@ pub fn args(server_path: &Path) -> Result<Vec<String>, &'static str> {
     args.push("--nogui".to_string());
 
     Ok(args)
+}
+
+pub fn info(server_path: &Path, start_time: SystemTime) -> Result<ServerInfo, &'static str> {
+    super::info(
+        start_time,
+        &server_path.join("libraries/net/minecraftforge/forge"),
+        &server_path.join("mods"),
+    )
 }
