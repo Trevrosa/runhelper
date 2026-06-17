@@ -2,6 +2,8 @@
 const statusElem = document.getElementById("status");
 const serverIp = document.getElementById("serverIp");
 const connectionStatus = document.getElementById("connectionStatus");
+const serverUptime = document.getElementById("serverUptime");
+const serverInfo = document.getElementById("serverInfo");
 
 // Utility functions
 function showStatus(message, isError = false) {
@@ -23,6 +25,37 @@ function formatPercent(value) {
   return `${value.toFixed(0)}%`;
 }
 
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function parseServerInfoTimeMs(value) {
+  if (!value) return null;
+  return value.secs_since_epoch * 1000 + value.nanos_since_epoch / 1e6;
+}
+
+function formatDuration(ms) {
+  if (!Number.isFinite(ms) || ms < 0) return "-";
+
+  const totalSeconds = Math.floor(ms / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  const parts = [];
+  if (days) parts.push(`${days}d`);
+  if (hours || parts.length) parts.push(`${hours}h`);
+  if (minutes || parts.length) parts.push(`${minutes}m`);
+  parts.push(`${seconds}s`);
+  return parts.join(" ");
+}
+
 const consoleElement = document.getElementById("console");
 
 // API calls
@@ -39,6 +72,7 @@ async function startServer() {
       if (response.ok) {
         showStatus(`Server started: ${text}`);
         consoleElement.innerText = "";
+        loadServerInfo();
       } else if (response.status == 503) {
         showStatus(
           "Failed to start server: server unavailable (try waking the server)",
@@ -71,6 +105,9 @@ async function stopServer() {
 
         if (response.ok) {
           showStatus(`Server stopped: ${text}`);
+          serverInfo.innerHTML =
+            '<div class="server-info-item">Server info is available after the server starts.</div>';
+          serverUptime.textContent = "";
         } else if (response.status == 503) {
           showStatus("Failed to stop server: server unavailable", true);
         } else {
@@ -145,9 +182,60 @@ async function getServerIp() {
   }, AUTH_PASSWORD_KEY);
 }
 
+async function loadServerInfo() {
+  lastServerInfoRefresh = performance.now();
+  try {
+    const response = await fetch("/api/info", {
+      signal: AbortSignal.timeout(2500),
+    });
+
+    if (!response.ok) {
+      if (response.status === 503) {
+        serverInfo.innerHTML =
+          '<div class="server-info-item">Server info is available after the server starts.</div>';
+      } else {
+        serverInfo.innerHTML = `<div class="server-info-item">Failed to load server info: ${response.status}</div>`;
+      }
+      serverStartedAtMs = null;
+      serverUptime.textContent = "";
+      return;
+    }
+
+    const info = await response.json();
+    const mods = Array.isArray(info.mods) ? info.mods : [];
+    serverStartedAtMs = parseServerInfoTimeMs(info.start_time);
+    const version = info.version ?? "-";
+    const modText =
+      mods.length > 0 ? mods.join(", ") : "None";
+
+    serverInfo.innerHTML = `
+      <div class="server-info-item"><span class="server-info-label">Version:</span> ${escapeHtml(version)}</div>
+      <div class="server-info-item"><span class="server-info-label">Mods (${mods.length}):</span> <span class="server-info-mods monospace">${escapeHtml(modText)}</span></div>
+    `;
+    updateServerUptime();
+  } catch (error) {
+    serverInfo.innerHTML = `<div class="server-info-item">Error loading server info: ${escapeHtml(error.message)}</div>`;
+    serverStartedAtMs = null;
+    serverUptime.textContent = "";
+  }
+}
+
 const statsTimeout = 1000;
 let lastStatsMsg = 0;
 let statsConnected = false;
+let lastServerRunning = null;
+let serverStartedAtMs = null;
+
+function updateServerUptime() {
+  if (serverStartedAtMs === null) {
+    serverUptime.textContent = "";
+    return;
+  }
+
+  serverUptime.textContent = `(${formatDuration(Date.now() - serverStartedAtMs)})`;
+}
+
+setInterval(updateServerUptime, 1000);
 
 setInterval(() => {
   if (!statsConnected) return;
@@ -210,6 +298,7 @@ function connectStats() {
 }
 
 connectStats();
+loadServerInfo();
 
 // Stats elements
 const systemRam = document.getElementById("systemRam");
@@ -225,9 +314,11 @@ function setServerRunning(running) {
   if (running) {
     serverRunningStatus.className = "running";
     serverRunningStatus.innerText = "running";
+    serverUptime.style.display = "inline";
   } else {
     serverRunningStatus.className = "stopped";
     serverRunningStatus.innerText = "stopped";
+    serverUptime.style.display = "none";
   }
 }
 
@@ -236,13 +327,41 @@ setInterval(() => {
     .then(async (resp) => {
       if (resp.ok) {
         let text = await resp.text();
-        setServerRunning(text == "true");
+        const running = text == "true";
+        setServerRunning(running);
+        if (running !== lastServerRunning) {
+          lastServerRunning = running;
+          if (running) {
+            loadServerInfo();
+          } else {
+            serverStartedAtMs = null;
+            serverInfo.innerHTML =
+              '<div class="server-info-item">Server info is available after the server starts.</div>';
+            serverUptime.textContent = "";
+          }
+        } else if (running && serverStartedAtMs !== null) {
+          updateServerUptime();
+        }
       } else {
         setServerRunning(false);
+        if (lastServerRunning !== false) {
+          lastServerRunning = false;
+          serverStartedAtMs = null;
+          serverInfo.innerHTML =
+            '<div class="server-info-item">Server info is available after the server starts.</div>';
+          serverUptime.textContent = "";
+        }
       }
     })
     .catch(() => {
       setServerRunning(false);
+      if (lastServerRunning !== false) {
+        lastServerRunning = false;
+        serverStartedAtMs = null;
+        serverInfo.innerHTML =
+          '<div class="server-info-item">Server info is available after the server starts.</div>';
+        serverUptime.textContent = "";
+      }
     });
 }, 1000);
 

@@ -16,17 +16,13 @@ type AppState = axum::extract::State<Arc<crate::AppState>>;
 
 // basic
 make_forward!(start, "/start");
-
-// basic
 make_forward!(ip, "/ip");
+make_forward!(info, "/info");
 
 // stop
 make_forward!(stop, "/stop");
-
 make_forward!(running, "/running");
-
 make_forward!(ping, "/ping");
-
 make_forward!(list, "/list");
 
 pub mod stats;
@@ -43,6 +39,7 @@ pub fn unauthed() -> Router<Arc<crate::AppState>> {
         .route("/running", get(running::running))
         .route("/ping", get(ping::ping))
         .route("/list", get(list::list))
+        .route("/info", get(info::info))
 }
 
 macro_rules! require_auth {
