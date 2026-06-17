@@ -92,6 +92,7 @@ fn info(start_time: SystemTime, versions: &Path, mods: &Path) -> Result<ServerIn
         .read_dir()
         .map_err(|_| "could not read dir")?
         .flatten()
+        .filter(|f| f.file_type().is_ok_and(|t| t.is_file()))
         .flat_map(|f| f.file_name().into_string())
         .collect();
 
