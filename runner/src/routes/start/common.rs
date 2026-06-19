@@ -4,6 +4,7 @@ use serde::Serialize;
 pub enum Mod {
     Resolved {
         name: String,
+        author: String,
         required: bool,
         link: String,
         icon_url: String,

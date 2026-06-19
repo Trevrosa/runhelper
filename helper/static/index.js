@@ -1,9 +1,12 @@
+// not me
+
 // DOM elements
 const statusElem = document.getElementById("status");
 const serverIp = document.getElementById("serverIp");
 const connectionStatus = document.getElementById("connectionStatus");
 const serverUptime = document.getElementById("serverUptime");
 const serverInfo = document.getElementById("serverInfo");
+const serverMods = document.getElementById("serverMods");
 
 // Utility functions
 function showStatus(message, isError = false) {
@@ -57,6 +60,155 @@ function formatDuration(ms) {
 }
 
 const consoleElement = document.getElementById("console");
+let serverInfoRequestInFlight = false;
+let serverInfoRefreshTimer = null;
+let serverInfoRetryArmed = false;
+let serverInfoRetryCount = 0;
+let serverInfoRetryPending = false;
+const SERVER_INFO_RETRY_LIMIT = 10;
+
+function setServerState(element, message) {
+  const state = document.createElement("div");
+  state.className = "server-info-empty";
+  state.textContent = message;
+  element.replaceChildren(state);
+}
+
+function clearServerInfoRefreshTimer() {
+  if (serverInfoRefreshTimer !== null) {
+    clearTimeout(serverInfoRefreshTimer);
+    serverInfoRefreshTimer = null;
+  }
+}
+
+function scheduleServerInfoRefresh() {
+  if (
+    !serverInfoRetryArmed ||
+    serverInfoRefreshTimer !== null ||
+    serverInfoRetryCount >= SERVER_INFO_RETRY_LIMIT
+  ) {
+    return;
+  }
+
+  serverInfoRetryCount += 1;
+  serverInfoRefreshTimer = setTimeout(() => {
+    serverInfoRefreshTimer = null;
+    loadServerInfo();
+  }, 1500);
+}
+
+function getModEntry(mod) {
+  if (!mod || typeof mod !== "object") {
+    return null;
+  }
+
+  const entries = Object.entries(mod);
+  return entries.length > 0 ? entries[0] : null;
+}
+
+function createModBadge(text, kind = "") {
+  const badge = document.createElement("span");
+  badge.className = `server-mod-badge${kind ? ` ${kind}` : ""}`;
+  badge.textContent = text;
+  return badge;
+}
+
+function createPlaceholderModIcon(name = "Mod") {
+  const svg = `<svg data-v-1114031b="" class="avatar shrink-0" style="--_size: 96px;" xml:space="preserve" fill-rule="evenodd" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="1.5" clip-rule="evenodd" viewBox="0 0 104 104" aria-hidden="true"><path data-v-1114031b="" fill="none" d="M0 0h103.4v103.4H0z"></path><path data-v-1114031b="" fill="none" stroke="#9a9a9a" stroke-width="5" d="M51.7 92.5V51.7L16.4 31.3l35.3 20.4L87 31.3 51.7 11 16.4 31.3v40.8l35.3 20.4L87 72V31.3L51.7 11"></path></svg>`;
+  const template = document.createElement("template");
+  template.innerHTML = svg;
+  const placeholder = template.content.firstElementChild;
+  placeholder.classList.add("server-mod-icon");
+  placeholder.setAttribute("aria-label", `${name} placeholder icon`);
+  placeholder.setAttribute("focusable", "false");
+  return placeholder;
+}
+
+function createModCard(mod) {
+  const entry = getModEntry(mod);
+  const [variant, data] = entry ?? [];
+  const isResolved = variant === "Resolved" && data;
+  const href = isResolved ? data.link : data?.website;
+  const card = href ? document.createElement("a") : document.createElement("div");
+  card.className = `server-mod-card ${isResolved ? "resolved" : "unresolved"}`;
+
+  if (href) {
+    card.href = href;
+    card.target = "_blank";
+    card.rel = "noopener noreferrer";
+  }
+
+  if (isResolved && data.icon_url) {
+    const icon = document.createElement("img");
+    icon.className = "server-mod-icon";
+    icon.src = data.icon_url;
+    icon.alt = `${data.name} icon`;
+    icon.referrerPolicy = "no-referrer";
+    icon.loading = "lazy";
+    card.appendChild(icon);
+  } else {
+    card.appendChild(createPlaceholderModIcon(isResolved ? data.name : data?.filename ?? "Mod"));
+  }
+
+  const body = document.createElement("div");
+  body.className = "server-mod-body";
+
+  const title = document.createElement("div");
+  title.className = "server-mod-title";
+
+  const subtitle = document.createElement("div");
+  subtitle.className = "server-mod-subtitle";
+
+  const badge = document.createElement("div");
+
+  if (isResolved) {
+    title.textContent = data.name;
+    subtitle.textContent = `by ${data.author ?? "Unknown"}`;
+    badge.appendChild(createModBadge(data.required ? "Required" : "Optional", data.required ? "required" : "optional"));
+  } else {
+    title.textContent = data?.filename ?? "Unknown mod";
+    title.classList.add("monospace");
+    subtitle.textContent = data?.author ? `by ${data.author}` : "Unresolved mod";
+    badge.appendChild(createModBadge(data?.website ? "Website" : "Unresolved"));
+  }
+
+  body.appendChild(title);
+  body.appendChild(subtitle);
+  body.appendChild(badge);
+  card.appendChild(body);
+  return card;
+}
+
+function renderServerInfo(info) {
+  clearServerInfoRefreshTimer();
+  serverInfoRetryArmed = false;
+  serverInfoRetryCount = 0;
+
+  const mods = Array.isArray(info.mods) ? info.mods : [];
+  serverStartedAtMs = parseServerInfoTimeMs(info.start_time);
+
+  const summary = document.createElement("div");
+  summary.className = "stat-value";
+  summary.textContent = `version: ${info.version}`;
+
+  const modsGrid = document.createElement("div");
+  modsGrid.className = "server-mods-grid";
+
+  if (mods.length > 0) {
+    for (const mod of mods) {
+      modsGrid.appendChild(createModCard(mod));
+    }
+  } else {
+    const empty = document.createElement("div");
+    empty.className = "server-info-empty";
+    empty.textContent = "No mods loaded";
+    modsGrid.appendChild(empty);
+  }
+
+  serverInfo.replaceChildren(summary);
+  serverMods.replaceChildren(modsGrid);
+  updateServerUptime();
+}
 
 // API calls
 async function startServer() {
@@ -72,6 +224,9 @@ async function startServer() {
       if (response.ok) {
         showStatus(`Server started: ${text}`);
         consoleElement.innerText = "";
+        serverInfoRetryArmed = true;
+        serverInfoRetryCount = 0;
+        setServerState(serverMods, "Waiting for server info...");
         loadServerInfo();
       } else if (response.status == 503) {
         showStatus(
@@ -105,9 +260,11 @@ async function stopServer() {
 
         if (response.ok) {
           showStatus(`Server stopped: ${text}`);
-          serverInfo.innerHTML =
-            '<div class="server-info-item">Server info is available after the server starts.</div>';
-          serverUptime.textContent = "";
+          serverInfoRetryArmed = false;
+          serverInfoRetryCount = 0;
+          clearServerInfoRefreshTimer();
+          setServerState(serverInfo, "Server info is available after the server starts.");
+          setServerState(serverMods, "Server info is available after the server starts.");
         } else if (response.status == 503) {
           showStatus("Failed to stop server: server unavailable", true);
         } else {
@@ -183,6 +340,12 @@ async function getServerIp() {
 }
 
 async function loadServerInfo() {
+  if (serverInfoRequestInFlight) {
+    return;
+  }
+
+  serverInfoRequestInFlight = true;
+  clearServerInfoRefreshTimer();
   lastServerInfoRefresh = performance.now();
   try {
     const response = await fetch("/api/info", {
@@ -190,11 +353,18 @@ async function loadServerInfo() {
     });
 
     if (!response.ok) {
+      serverInfoRetryPending = true;
       if (response.status === 503) {
-        serverInfo.innerHTML =
-          '<div class="server-info-item">Server info is available after the server starts.</div>';
+        if (serverInfoRetryArmed) {
+          setServerState(serverInfo, "Waiting for server info...");
+          setServerState(serverMods, "Waiting for server info...");
+        } else {
+          setServerState(serverInfo, "Server info is available after the server starts.");
+          setServerState(serverMods, "Server info is available after the server starts.");
+        }
       } else {
-        serverInfo.innerHTML = `<div class="server-info-item">Failed to load server info: ${response.status}</div>`;
+        setServerState(serverInfo, `Failed to load server info: ${response.status}`);
+        setServerState(serverMods, `Failed to load server info: ${response.status}`);
       }
       serverStartedAtMs = null;
       serverUptime.textContent = "";
@@ -202,21 +372,21 @@ async function loadServerInfo() {
     }
 
     const info = await response.json();
-    const mods = Array.isArray(info.mods) ? info.mods : [];
-    serverStartedAtMs = parseServerInfoTimeMs(info.start_time);
-    const version = info.version ?? "-";
-    const modText =
-      mods.length > 0 ? mods.join(", ") : "None";
-
-    serverInfo.innerHTML = `
-      <div class="server-info-item"><span class="server-info-label">Version:</span> ${escapeHtml(version)}</div>
-      <div class="server-info-item"><span class="server-info-label">Mods (${mods.length}):</span> <span class="server-info-mods monospace">${escapeHtml(modText)}</span></div>
-    `;
-    updateServerUptime();
+    if (lastServerRunning === false) {
+      return;
+    }
+    renderServerInfo(info);
   } catch (error) {
-    serverInfo.innerHTML = `<div class="server-info-item">Error loading server info: ${escapeHtml(error.message)}</div>`;
+    setServerState(serverInfo, `Error loading server info: ${error.message}`);
+    setServerState(serverMods, `Error loading server info: ${error.message}`);
     serverStartedAtMs = null;
     serverUptime.textContent = "";
+  } finally {
+    serverInfoRequestInFlight = false;
+    if (serverInfoRetryPending) {
+      serverInfoRetryPending = false;
+      scheduleServerInfoRefresh();
+    }
   }
 }
 
@@ -332,11 +502,14 @@ setInterval(() => {
         if (running !== lastServerRunning) {
           lastServerRunning = running;
           if (running) {
+            serverInfoRetryArmed = true;
             loadServerInfo();
           } else {
             serverStartedAtMs = null;
-            serverInfo.innerHTML =
-              '<div class="server-info-item">Server info is available after the server starts.</div>';
+            serverInfoRetryArmed = false;
+            clearServerInfoRefreshTimer();
+            setServerState(serverInfo, "Server info is available after the server starts.");
+            setServerState(serverMods, "Server info is available after the server starts.");
             serverUptime.textContent = "";
           }
         } else if (running && serverStartedAtMs !== null) {
@@ -347,8 +520,11 @@ setInterval(() => {
         if (lastServerRunning !== false) {
           lastServerRunning = false;
           serverStartedAtMs = null;
-          serverInfo.innerHTML =
-            '<div class="server-info-item">Server info is available after the server starts.</div>';
+          serverInfoRetryArmed = false;
+          serverInfoRetryCount = 0;
+          clearServerInfoRefreshTimer();
+          setServerState(serverInfo, "Server info is available after the server starts.");
+          setServerState(serverMods, "Server info is available after the server starts.");
           serverUptime.textContent = "";
         }
       }
@@ -358,8 +534,11 @@ setInterval(() => {
       if (lastServerRunning !== false) {
         lastServerRunning = false;
         serverStartedAtMs = null;
-        serverInfo.innerHTML =
-          '<div class="server-info-item">Server info is available after the server starts.</div>';
+        serverInfoRetryArmed = false;
+        serverInfoRetryCount = 0;
+        clearServerInfoRefreshTimer();
+        setServerState(serverInfo, "Server info is available after the server starts.");
+        setServerState(serverMods, "Server info is available after the server starts.");
         serverUptime.textContent = "";
       }
     });

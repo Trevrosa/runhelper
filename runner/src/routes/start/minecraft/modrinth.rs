@@ -36,6 +36,7 @@ impl From<Project> for Mod {
     fn from(val: Project) -> Self {
         Mod::Resolved {
             name: val.title,
+            author: val.author,
             required: val.client_side == "required",
             link: format!("https://modrinth.com/mod/{}", val.slug),
             icon_url: val.icon_url,
