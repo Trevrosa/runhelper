@@ -86,9 +86,8 @@ async fn main() -> anyhow::Result<()> {
             Duration::from_secs(5),
         ));
 
-    let port = env::var("HELPER_PORT")
-        .map(|p| p.parse().expect("configured port is not an int"))
-        .unwrap_or(1234);
+    let port =
+        env::var("HELPER_PORT").map_or(1234, |p| p.parse().expect("configured port is not an int"));
     let ip = SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, port);
 
     tracing::info!("running server on :{port}");
