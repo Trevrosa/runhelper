@@ -1,8 +1,6 @@
 type AppState = axum::extract::State<std::sync::Arc<crate::AppState>>;
 
-mod start;
-
-pub use start::start;
+pub mod start;
 
 mod stop;
 pub use stop::stop;

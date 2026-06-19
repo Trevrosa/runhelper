@@ -1,6 +1,12 @@
 use std::{env, fs::DirEntry, path::Path, time::SystemTime};
 
-use crate::ServerInfo;
+use reqwest::Client;
+use serde::Deserialize;
+
+use crate::{
+    ServerInfo,
+    routes::start::minecraft::{ModMeta, extract_jar},
+};
 
 pub(super) fn args(server_path: &Path) -> Result<Vec<String>, &'static str> {
     let mut args = Vec::new();
@@ -50,10 +56,37 @@ pub(super) fn args(server_path: &Path) -> Result<Vec<String>, &'static str> {
     Ok(args)
 }
 
-pub(super) fn info(server_path: &Path, start_time: SystemTime) -> Result<ServerInfo, &'static str> {
-    super::info(
-        start_time,
+#[derive(Deserialize)]
+struct Meta {
+    name: String,
+    version: String,
+    website: Option<String>,
+    authors: Option<Vec<String>>,
+}
+
+fn get_meta(file: &Path) -> anyhow::Result<ModMeta> {
+    let meta = extract_jar(file, "plugin.yml")?;
+    let meta = serde_yaml::from_str::<Meta>(&meta)?;
+
+    Ok(ModMeta {
+        name: meta.name,
+        version: meta.version,
+        authors: meta.authors,
+        website: meta.website,
+    })
+}
+
+pub(super) async fn info(
+    server_path: &Path,
+    start_time: SystemTime,
+    client: &Client,
+) -> anyhow::Result<ServerInfo> {
+    super::get_info(
         &server_path.join("versions"),
         &server_path.join("plugins"),
+        get_meta,
+        start_time,
+        client,
     )
+    .await
 }

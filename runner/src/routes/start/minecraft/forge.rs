@@ -4,8 +4,13 @@ use std::{
 };
 
 use anyhow::anyhow;
+use reqwest::Client;
+use serde::Deserialize;
 
-use crate::ServerInfo;
+use crate::{
+    ServerInfo,
+    routes::start::minecraft::{ModMeta, extract_jar},
+};
 
 pub fn find_platform_args(server_path: &Path) -> anyhow::Result<PathBuf> {
     let forge_dir = server_path.join("libraries/net/minecraftforge/forge/");
@@ -48,10 +53,49 @@ pub fn args(server_path: &Path) -> Result<Vec<String>, &'static str> {
     Ok(args)
 }
 
-pub fn info(server_path: &Path, start_time: SystemTime) -> Result<ServerInfo, &'static str> {
-    super::info(
-        start_time,
+#[derive(Deserialize)]
+struct Meta {
+    mods: Vec<Mod>,
+}
+
+#[derive(Deserialize)]
+struct Mod {
+    #[serde(rename = "displayName")]
+    display_name: String,
+    #[serde(rename = "displayURL")]
+    display_url: Option<String>,
+    authors: Option<String>,
+    version: String,
+}
+
+fn get_meta(file: &Path) -> anyhow::Result<ModMeta> {
+    let meta = extract_jar(file, "META-INF/mods.toml")?;
+    let meta = toml::from_str::<Meta>(&meta)?
+        .mods
+        .pop()
+        .ok_or(anyhow!("mods.toml missing metadata"))?;
+
+    Ok(ModMeta {
+        name: meta.display_name,
+        version: meta.version,
+        authors: meta
+            .authors
+            .map(|a| a.split(", ").map(ToString::to_string).collect()),
+        website: meta.display_url,
+    })
+}
+
+pub(super) async fn info(
+    server_path: &Path,
+    start_time: SystemTime,
+    client: &Client,
+) -> anyhow::Result<ServerInfo> {
+    super::get_info(
         &server_path.join("libraries/net/minecraftforge/forge"),
         &server_path.join("mods"),
+        get_meta,
+        start_time,
+        client,
     )
+    .await
 }

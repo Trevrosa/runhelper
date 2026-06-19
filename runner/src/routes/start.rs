@@ -1,5 +1,7 @@
 // TODO: make the two server types better integrated
 
+pub mod common;
+pub use common::Mod;
 mod minecraft;
 mod terraria;
 
@@ -29,21 +31,20 @@ pub async fn start(State(state): AppState) -> (StatusCode, &'static str) {
 
     tracing::info!("got run request");
 
+    // run sets serverinfo
     let run = if *SERVER_TYPE == ServerType::Minecraft {
-        minecraft::run(server_path)
+        minecraft::run(state.clone(), server_path)
     } else {
-        terraria::run(server_path)
+        terraria::run(state.clone(), server_path)
     };
 
-    let (child, info) = match run {
-        Ok((child, info)) => (child, info),
+    let child = match run {
+        Ok(child) => child,
         Err(err) => {
             state.server_starting.store(false, Ordering::Release);
             return err;
         }
     };
-
-    state.server_info.write().await.replace(info);
 
     let Ok(mut child) = child else {
         state.server_starting.store(false, Ordering::Release);

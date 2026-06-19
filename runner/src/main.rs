@@ -26,7 +26,11 @@ use tower_http::timeout::TimeoutLayer;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;
 
-use crate::routes::{console, exec, info, ip, list, ping, running, start, stats, stop};
+use crate::routes::{
+    console, exec, info, ip, list, ping, running,
+    start::{self, Mod},
+    stats, stop,
+};
 
 #[cfg(not(windows))]
 #[global_allocator]
@@ -56,8 +60,7 @@ struct AppState {
 struct ServerInfo {
     start_time: SystemTime,
     version: String,
-    /// list of raw filenames
-    mods: Vec<String>,
+    mods: Vec<Mod>,
 }
 
 impl Debug for AppState {
@@ -158,7 +161,7 @@ async fn main() -> anyhow::Result<()> {
     let app_state = Arc::new(AppState::new(stats_tx, console_tx, stdin_tx));
 
     let app = Router::new()
-        .route("/start", get(start))
+        .route("/start", get(start::start))
         .route("/stop", get(stop))
         .route("/running", get(running))
         .route("/ip", get(ip))
