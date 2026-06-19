@@ -84,6 +84,7 @@ pub(super) async fn info(
     super::get_info(
         &server_path.join("versions"),
         &server_path.join("plugins"),
+        "paper",
         get_meta,
         start_time,
         client,

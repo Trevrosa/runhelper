@@ -123,6 +123,7 @@ struct ModMeta {
 async fn get_info(
     versions: &Path,
     mods: &Path,
+    variant: &str,
     get_meta: fn(&Path) -> anyhow::Result<ModMeta>,
     start_time: SystemTime,
     client: &Client,
@@ -135,7 +136,7 @@ async fn get_info(
 
     while let Ok(Some(file)) = versions.next_entry().await {
         if let Some(ver) = file.file_name().to_string_lossy().split('-').next() {
-            version = Some(ver.to_string());
+            version = Some(format!("{ver} ({variant})"));
             break;
         }
     }

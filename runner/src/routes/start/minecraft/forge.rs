@@ -93,6 +93,7 @@ pub(super) async fn info(
     super::get_info(
         &server_path.join("libraries/net/minecraftforge/forge"),
         &server_path.join("mods"),
+        "forge",
         get_meta,
         start_time,
         client,

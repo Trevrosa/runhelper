@@ -59,6 +59,7 @@ struct AppState {
 #[derive(Serialize, Debug, Clone)]
 struct ServerInfo {
     start_time: SystemTime,
+    // includes variant
     version: String,
     mods: Vec<Mod>,
 }
