@@ -25,15 +25,15 @@ async fn handle_socket(mut socket: WebSocket, mut channel: Receiver<Bytes>) {
                 continue;
             };
             let Ok(message) = serde_json::to_string(&stats) else {
-                tracing::warn!("failed to deserialize to json");
+                tracing::warn!("failed to serialize to json");
                 continue;
             };
 
             if let Err(err) = socket.send(Message::Text(message.into())).await {
-                tracing::warn!("{err}, closing socket");
+                tracing::debug!("{err}, closing socket");
                 break;
             }
         }
-        tracing::warn!("ws closed");
+        tracing::debug!("ws closed");
     }
 }
