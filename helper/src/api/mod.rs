@@ -7,7 +7,9 @@ use axum::{
     http::{Response, StatusCode},
     routing::get,
 };
-use tower_http::auth::AsyncRequireAuthorizationLayer;
+use tower_http::{
+    CompressionLevel, auth::AsyncRequireAuthorizationLayer, compression::CompressionLayer,
+};
 
 #[macro_use]
 mod make_forward;
@@ -39,7 +41,11 @@ pub fn unauthed() -> Router<Arc<crate::AppState>> {
         .route("/running", get(running::running))
         .route("/ping", get(ping::ping))
         .route("/list", get(list::list))
-        .route("/info", get(info::info))
+        .merge(
+            Router::new()
+                .route("/info", get(info::info))
+                .layer(CompressionLayer::new().quality(CompressionLevel::Precise(3))),
+        )
 }
 
 macro_rules! require_auth {
