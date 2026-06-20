@@ -129,7 +129,7 @@ pub async fn server_observer(state: Arc<AppState>, mut child: Child) {
         tracing::warn!("could not wait for server exit: {err}");
     }
 
-    state.set_stopped();
+    state.set_stopped().await;
 
     tracing::info!("server stopped");
 }

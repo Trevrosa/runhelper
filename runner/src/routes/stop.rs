@@ -26,7 +26,6 @@ pub async fn stop(State(state): AppState) -> (StatusCode, &'static str) {
     tracing::info!("received stop request");
 
     state.server_stopping.store(true, Ordering::Release);
-    state.server_info.write().await.take();
 
     if *SERVER_TYPE == ServerType::Minecraft {
         if let Err(err) = state.server_stdin.send("/stop".to_string()) {

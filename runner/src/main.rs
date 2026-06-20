@@ -97,9 +97,10 @@ impl AppState {
 
     /// declare that the server is stopped.
     #[inline]
-    fn set_stopped(&self) {
+    async fn set_stopped(&self) {
         self.server_pid.store(0, Ordering::Release);
         self.server_running.store(false, Ordering::Release);
+        self.server_info.write().await.take();
     }
 }
 
