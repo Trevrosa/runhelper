@@ -1,5 +1,5 @@
 function wsconsole() {
-  let a = new WebSocket("http://localhost:4321/console");
+  let a = new WebSocket("http://localhost:1111/console?secret=dddd");
 
   a.onclose = (_e) => {
     console.log("reconnecting..");
@@ -18,7 +18,7 @@ function wsconsole() {
 wsconsole();
 
 for await (const line of console) {
-  fetch(`http://localhost:4321/exec/${line.trim()}`).then(async (resp) => {
+  fetch(`http://localhost:1111/exec/${line.trim()}`).then(async (resp) => {
     console.debug(await resp.text());
   });
 }

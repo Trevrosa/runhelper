@@ -1,6 +1,6 @@
 use std::{
     env,
-    sync::{Arc, atomic::Ordering},
+    sync::{Arc, LazyLock, atomic::Ordering},
     time::Duration,
 };
 
@@ -15,7 +15,7 @@ use tokio::{
 };
 use tracing::instrument;
 
-use crate::{AppState, SERVER_TYPE, ServerType};
+use crate::AppState;
 
 /// how many times to wait for the server to shutdown
 const SERVER_SHUTDOWN_RETRIES: u32 = 3;
@@ -146,46 +146,46 @@ pub async fn console_writer(mut rx: broadcast::Receiver<String>, mut stdin: Chil
     }
 }
 
+static SHOW_CONSOLE: LazyLock<bool> =
+    LazyLock::new(|| env::var("SHOW_CONSOLE").is_ok_and(|v| v == "true"));
+
 /// a background task that reads the stdout of the server (if running)
 #[instrument(skip_all)]
 pub async fn console_reader<C: AsyncRead + Unpin>(tx: broadcast::Sender<String>, console: C) {
-    let mut console = BufReader::new(console).lines();
+    let mut console = BufReader::new(console);
 
-    let show_console = env::var("SHOW_CONSOLE").is_ok_and(|v| v == "true");
-    let mut log = if show_console {
+    let mut log = if *SHOW_CONSOLE {
         Some(tokio::io::stdout())
     } else {
         None
     };
 
-    while let Ok(Some(line)) = console.next_line().await {
+    let err = loop {
+        let mut buf = Vec::new();
+        match console.read_until(b'\n', &mut buf).await {
+            Ok(0) => break None,
+            Err(err) => break Some(err),
+            _ => (),
+        }
+        let mut line = String::from_utf8_lossy(&buf).into_owned();
+        if line.ends_with('\n') {
+            line.pop();
+            if line.ends_with('\r') {
+                line.pop();
+            }
+        }
+
         if let Some(ref mut log) = log {
             let _ = log.write_all(line.as_bytes()).await;
             let _ = log.write_u8(b'\n').await;
         }
 
-        if *SERVER_TYPE == ServerType::Minecraft {
-            // its from /list, safe to send raw.
-            if line.contains("]: There are") {
-                if let Err(err) = tx.send(line) {
-                    tracing::warn!("failed to broadcast: {err}");
-                }
-                continue;
-            }
-        }
-
-        // hide ips and coords
-        let masked = line
-            .chars()
-            .map(|char| if char.is_ascii_digit() { '*' } else { char })
-            .collect();
-
-        if let Err(err) = tx.send(masked) {
+        if let Err(err) = tx.send(line) {
             tracing::warn!("failed to broadcast: {err}");
         }
-    }
+    };
 
-    tracing::warn!("server stdout closed");
+    tracing::warn!("server output closed, error: {err:?}");
 }
 
 /// gets the real pid after it spawns
