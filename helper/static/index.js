@@ -164,7 +164,8 @@ function createModCard(mod) {
   if (isResolved) {
     title.textContent = data.name;
     subtitle.textContent = `by ${data.author ?? "Unknown"}`;
-    badge.appendChild(createModBadge(data.required ? "Required" : "Optional", data.required ? "required" : "optional"));
+    let text = data.dependency ? "Dependency" : (data.required ? "Required" : "Optional")
+    badge.appendChild(createModBadge(text, data.required || data.dependency ? "required" : "optional"));
   } else {
     title.textContent = data?.filename ?? "Unknown mod";
     title.classList.add("monospace");

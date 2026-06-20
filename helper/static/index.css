@@ -227,12 +227,13 @@ button {
 
 .console-container {
     height: 240px;
-    width: 97.5%;
+    width: 100%;
+    max-width: 100%;
     display: flex;
     flex-direction: column;
     background: #1e1e1e;
     border-radius: 4px;
-    overflow: hidden;
+    overflow-wrap: break-word;
 }
 
 .console-status {
