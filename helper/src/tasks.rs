@@ -2,8 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use futures_util::StreamExt;
 use helper::UrlExt;
-use reqwest_websocket as reqwest_ws;
-use reqwest_ws::{Message, RequestBuilderExt};
+use reqwest_websocket::{self as reqwest_ws, Message, Upgrade};
 use tokio::signal;
 use tracing::instrument;
 

@@ -4,16 +4,16 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-anyhow = "1.0"
-axum = { version = "0.8", features = ["ws"] }
-bitcode = { version = "0.6", features = ["serde"] }
+anyhow = "1.0.102"
+axum = { version = "0.8.9", features = ["ws"] }
+bitcode = { version = "0.6.9", features = ["serde"] }
 dotenvy = "0.15"
-reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
-sysinfo = "0.37"
-tokio = { version = "1.48", features = ["fs", "io-std", "macros", "process", "rt-multi-thread", "signal"] }
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-tower-http = { version = "0.6", features = ["timeout"] }
+reqwest = { version = "0.13.4", features = ["json", "rustls", "query"], default-features = false }
+sysinfo = "0.39.3"
+tokio = { version = "1.52.3", features = ["fs", "io-std", "macros", "process", "rt-multi-thread", "signal"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+tower-http = { version = "0.7.0", features = ["timeout"] }
 
 common = { path = "../common" }
 children = { path = "../children" }
