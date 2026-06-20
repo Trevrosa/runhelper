@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     path::{Path, PathBuf},
     time::SystemTime,
 };
@@ -7,10 +8,8 @@ use anyhow::anyhow;
 use reqwest::Client;
 use serde::Deserialize;
 
-use crate::{
-    ServerInfo,
-    routes::start::minecraft::{ModMeta, extract_jar},
-};
+use super::{ModMeta, extract_jar};
+use crate::ServerInfo;
 
 pub fn find_platform_args(server_path: &Path) -> anyhow::Result<PathBuf> {
     let forge_dir = server_path.join("libraries/net/minecraftforge/forge/");
@@ -54,7 +53,25 @@ pub fn args(server_path: &Path) -> Result<Vec<String>, &'static str> {
 }
 
 #[derive(Deserialize)]
+#[serde(untagged)]
+enum StringOrMore {
+    Str(String),
+    Vec(Vec<String>),
+}
+
+impl StringOrMore {
+    fn get_all(me: Option<Self>) -> Option<Vec<String>> {
+        match me? {
+            Self::Str(str) => Some(str.split(", ").map(ToString::to_string).collect()),
+            Self::Vec(vec) if !vec.is_empty() => Some(vec),
+            Self::Vec(_) => None,
+        }
+    }
+}
+
+#[derive(Deserialize)]
 struct Meta {
+    authors: Option<StringOrMore>,
     mods: Vec<Mod>,
 }
 
@@ -64,24 +81,22 @@ struct Mod {
     display_name: String,
     #[serde(rename = "displayURL")]
     display_url: Option<String>,
-    authors: Option<String>,
+    authors: Option<StringOrMore>,
     version: String,
 }
 
-fn get_meta(file: &Path) -> anyhow::Result<ModMeta> {
-    let meta = extract_jar(file, "META-INF/mods.toml")?;
-    let meta = toml::from_str::<Meta>(&meta)?
-        .mods
-        .pop()
-        .ok_or(anyhow!("mods.toml missing metadata"))?;
+fn get_meta(file: &Path) -> Result<ModMeta, Cow<'_, str>> {
+    let meta = extract_jar(file, "META-INF/mods.toml").map_err(|e| e.to_string())?;
+    let mut meta = toml::from_str::<Meta>(&meta).map_err(|e| e.to_string())?;
+    let r#mod = meta.mods.pop().ok_or("mods.toml missing metadata")?;
+
+    let authors = StringOrMore::get_all(r#mod.authors.or(meta.authors));
 
     Ok(ModMeta {
-        name: meta.display_name,
-        version: meta.version,
-        authors: meta
-            .authors
-            .map(|a| a.split(", ").map(ToString::to_string).collect()),
-        website: meta.display_url,
+        name: r#mod.display_name,
+        version: r#mod.version,
+        authors,
+        website: r#mod.display_url,
     })
 }
 

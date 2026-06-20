@@ -2,6 +2,7 @@ use anyhow::{Context, anyhow};
 use axum::http::StatusCode;
 use reqwest::Client;
 use std::{
+    borrow::Cow,
     fs::File,
     io::{BufReader, Read},
     path::Path,
@@ -11,13 +12,11 @@ use std::{
 };
 use strsim::jaro_winkler;
 use tokio::process::{Child, Command};
-use tracing::warn;
+use tracing::{debug, trace, warn};
 use zip::ZipArchive;
 
-use crate::{
-    AppState, ServerInfo,
-    routes::start::{Mod, minecraft::modrinth::Project},
-};
+use super::{Mod, minecraft::modrinth::Project};
+use crate::{AppState, ServerInfo};
 
 mod modrinth;
 
@@ -82,7 +81,8 @@ pub fn run(
         };
         match info {
             Ok(info) => {
-                tracing::info!("found server info");
+                let elapsed = start_time.elapsed().unwrap_or_default();
+                tracing::info!("found server info ({elapsed:?})");
                 state.server_info.write().await.replace(info);
             }
             Err(err) => warn!("could not find server info: {err}"),
@@ -111,7 +111,7 @@ fn extract_jar(file: &Path, path: &str) -> anyhow::Result<String> {
     Ok(meta)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct ModMeta {
     name: String,
     #[allow(unused)]
@@ -124,7 +124,7 @@ async fn get_info(
     versions: &Path,
     mods: &Path,
     variant: &str,
-    get_meta: fn(&Path) -> anyhow::Result<ModMeta>,
+    get_meta: fn(&Path) -> Result<ModMeta, Cow<'_, str>>,
     start_time: SystemTime,
     client: &Client,
 ) -> anyhow::Result<ServerInfo> {
@@ -144,27 +144,45 @@ async fn get_info(
     let mut mod_files = tokio::fs::read_dir(mods).await.context("reading mod dir")?;
     let mut paths = Vec::new();
     while let Ok(Some(file)) = mod_files.next_entry().await {
-        if file.file_type().await.is_ok_and(|f| f.is_file()) {
+        if file.file_type().await.is_ok_and(|f| f.is_file())
+            && file.file_name().to_string_lossy().ends_with(".jar")
+        {
             paths.push(file.path());
         }
     }
 
     let mut mods = Vec::with_capacity(paths.len());
-    for path in paths {
+    'paths: for path in paths {
         let name = path.file_name().unwrap().to_string_lossy();
         let meta = get_meta(&path);
 
-        let query = match meta {
-            Ok(ref meta) => meta.name.as_ref(),
-            Err(ref err) => {
-                warn!("could not find mod metadata: {err}");
-                name.as_ref()
-            }
-        };
+        let mut queries: Vec<Cow<str>> =
+            vec![name.split('-').next().unwrap_or(name.as_ref()).into()];
 
-        let proj = modrinth::Project::find(client, query).await;
-        let proj = select_meta(name.into_owned(), proj, meta);
-        mods.push(proj);
+        match meta {
+            Ok(ref meta) => queries.push(Cow::Borrowed(meta.name.as_ref())),
+            Err(ref err) => warn!("could not find mod metadata: {err}"),
+        }
+
+        let mut r#mod = None;
+        for query in queries.iter().rev() {
+            trace!("query: {query:?}");
+            let projs = modrinth::Project::find(client, query).await;
+            let selected = select_meta(query, name.clone().into_owned(), projs, meta.clone());
+            if let Some((this, stop)) = selected {
+                r#mod = Some(this);
+                if stop {
+                    break;
+                }
+            } else {
+                debug!("skipping");
+                continue 'paths;
+            }
+        }
+
+        if let Some(r#mod) = r#mod {
+            mods.push(r#mod);
+        }
     }
 
     Ok(ServerInfo {
@@ -174,60 +192,106 @@ async fn get_info(
     })
 }
 
-fn select_meta(
-    filename: String,
-    proj: anyhow::Result<Project>,
-    meta: anyhow::Result<ModMeta>,
-) -> Mod {
-    match proj {
-        Ok(proj) if let Ok(meta) = meta => {
-            let Some(author) = meta.authors.and_then(|a| a.first().cloned()) else {
-                return Mod::Unresolved {
-                    filename,
-                    website: meta.website,
-                    author: None,
-                };
-            };
+fn slug_eq(a: &str, b: &str) -> bool {
+    a.to_ascii_lowercase().replace('-', "") == b.to_ascii_lowercase().replace([' ', '-'], "")
+}
 
-            // tested jaro is usually better than levenshtein etc
-            let dist = jaro_winkler(&author.to_lowercase(), &proj.author.to_lowercase());
-            if dist < 0.8 {
-                warn!(
-                    "search result not good enough ({}~{author}={dist:.2})",
-                    proj.author
-                );
+const FIRST_RESULTS: usize = 7;
+
+/// returns (`mod`, `final`). if `final` is true, stop further queries
+fn select_meta(
+    query: &str,
+    filename: String,
+    projs: anyhow::Result<Vec<Project>>,
+    meta: Result<ModMeta, Cow<'_, str>>,
+) -> Option<(Mod, bool)> {
+    match projs {
+        Ok(projs) if let Ok(meta) = meta => {
+            let Some(author) = meta.authors.and_then(|a| a.first().cloned()) else {
+                return Some((
+                    Mod::Unresolved {
+                        filename,
+                        website: meta.website,
+                        author: None,
+                    },
+                    false,
+                ));
+            };
+            for proj in projs.into_iter().take(FIRST_RESULTS) {
+                if slug_eq(&proj.slug, query) {
+                    debug!("slug same as query");
+                    if proj.client_side == "unsupported" {
+                        debug!("found mod but its server-sided");
+                        return None;
+                    }
+                    return Some((proj.into(), true));
+                }
+
+                // tested jaro is usually better than levenshtein etc
+                let dist = jaro_winkler(&author.to_lowercase(), &proj.author.to_lowercase());
+                if dist < 0.77 {
+                    trace!("{}~{author}={dist:.2}", proj.author);
+                } else if proj.client_side == "unsupported" {
+                    debug!("found mod but its server-sided");
+                    return None;
+                } else {
+                    debug!("ok");
+                    return Some((proj.into(), true));
+                }
+            }
+
+            debug!("could not find mod in first {FIRST_RESULTS} search results");
+            Some((
                 Mod::Unresolved {
                     filename,
                     website: meta.website,
                     author: Some(author),
+                },
+                false,
+            ))
+        }
+        Ok(projs) => {
+            if let Some(proj) = projs.into_iter().find(|proj| slug_eq(&proj.slug, query)) {
+                debug!("slug same as query");
+                if proj.client_side == "unsupported" {
+                    debug!("found mod but its server-sided");
+                    None
+                } else {
+                    Some((proj.into(), true))
                 }
             } else {
-                proj.into()
-            }
-        }
-        Ok(proj) => {
-            warn!("found mod, but no file meta: {proj:?}");
-            Mod::Unresolved {
-                filename,
-                author: None,
-                website: None,
+                warn!("got results, but no file meta");
+                Some((
+                    Mod::Unresolved {
+                        filename,
+                        author: None,
+                        website: None,
+                    },
+                    true,
+                ))
             }
         }
         Err(err) if let Ok(meta) = meta => {
-            warn!("could not find mod, but have file meta: {err}");
-            Mod::Unresolved {
-                filename,
-                author: meta.authors.and_then(|a| a.first().cloned()),
-                website: meta.website,
-            }
+            warn!("could not find mod ({err}), but have file meta");
+            Some((
+                Mod::Unresolved {
+                    filename,
+                    author: meta.authors.and_then(|a| a.first().cloned()),
+                    website: meta.website,
+                },
+                false,
+            ))
         }
         Err(err) => {
             warn!("could not find mod: {err}");
-            Mod::Unresolved {
-                filename,
-                website: None,
-                author: None,
-            }
+            Some((
+                Mod::Unresolved {
+                    filename,
+                    website: None,
+                    author: None,
+                },
+                false,
+            ))
         }
     }
 }

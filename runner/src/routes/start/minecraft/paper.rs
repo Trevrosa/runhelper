@@ -1,12 +1,10 @@
-use std::{env, fs::DirEntry, path::Path, time::SystemTime};
+use std::{borrow::Cow, env, fs::DirEntry, path::Path, time::SystemTime};
 
 use reqwest::Client;
 use serde::Deserialize;
 
-use crate::{
-    ServerInfo,
-    routes::start::minecraft::{ModMeta, extract_jar},
-};
+use super::{ModMeta, extract_jar};
+use crate::ServerInfo;
 
 pub(super) fn args(server_path: &Path) -> Result<Vec<String>, &'static str> {
     let mut args = Vec::new();
@@ -62,16 +60,28 @@ struct Meta {
     version: String,
     website: Option<String>,
     authors: Option<Vec<String>>,
+    author: Option<String>,
 }
 
-fn get_meta(file: &Path) -> anyhow::Result<ModMeta> {
-    let meta = extract_jar(file, "plugin.yml")?;
-    let meta = serde_yaml::from_str::<Meta>(&meta)?;
+fn get_meta(file: &Path) -> Result<ModMeta, Cow<'_, str>> {
+    let meta = extract_jar(file, "plugin.yml").map_err(|e| e.to_string())?;
+    let meta = serde_yaml::from_str::<Meta>(&meta).map_err(|e| e.to_string())?;
+
+    let mut authors = meta.author.map(|a| vec![a]).unwrap_or_default();
+    if let Some(meta_authors) = meta.authors {
+        authors.extend(meta_authors);
+    }
+
+    let authors = if authors.is_empty() {
+        None
+    } else {
+        Some(authors)
+    };
 
     Ok(ModMeta {
         name: meta.name,
         version: meta.version,
-        authors: meta.authors,
+        authors,
         website: meta.website,
     })
 }

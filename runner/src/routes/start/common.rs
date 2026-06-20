@@ -5,6 +5,7 @@ pub enum Mod {
     Resolved {
         name: String,
         author: String,
+        dependency: bool,
         required: bool,
         link: String,
         icon_url: String,

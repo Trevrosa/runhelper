@@ -32,10 +32,9 @@ pub async fn start(State(state): AppState) -> (StatusCode, &'static str) {
     tracing::info!("got run request");
 
     // run sets serverinfo
-    let run = if *SERVER_TYPE == ServerType::Minecraft {
-        minecraft::run(state.clone(), server_path)
-    } else {
-        terraria::run(state.clone(), server_path)
+    let run = match *SERVER_TYPE {
+        ServerType::Minecraft => minecraft::run(state.clone(), server_path),
+        ServerType::Terraria => terraria::run(state.clone(), server_path),
     };
 
     let child = match run {
@@ -69,6 +68,7 @@ pub async fn start(State(state): AppState) -> (StatusCode, &'static str) {
         warn_error!("could not get server stdin");
     };
 
+    // terraria-specific
     if *SERVER_TYPE == ServerType::Terraria {
         if cfg!(windows) {
             tokio::spawn(tasks::child_finder(state.clone(), pid));
