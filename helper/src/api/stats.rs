@@ -1,23 +1,42 @@
+use axum::http::StatusCode;
 use axum::{
-    extract::{
-        State, WebSocketUpgrade,
-        ws::{Message, WebSocket},
-    },
-    response::Response,
+    extract::State,
+    response::{IntoResponse, Response},
 };
 use common::Stats;
+use futures_util::SinkExt;
 use reqwest_websocket::Bytes;
 use tokio::sync::broadcast::Receiver;
+use tracing::warn;
+use yawc::{CompressionLevel, Frame, IncomingUpgrade, UpgradeFut};
 
 use super::AppState;
 
 /// forward the websocket from the local runner.
-pub async fn stats(ws: WebSocketUpgrade, State(state): AppState) -> Response {
+pub async fn stats(ws: IncomingUpgrade, State(state): AppState) -> Response {
     let channel = state.stats.subscribe();
-    ws.on_upgrade(|socket| handle_socket(socket, channel))
+
+    let options = yawc::Options::default().with_compression_level(CompressionLevel::new(4));
+    let Ok((resp, fut)) = ws.upgrade(options) else {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "failed to create websocket",
+        )
+            .into_response();
+    };
+
+    tokio::spawn(async {
+        if let Err(err) = handle_socket(fut, channel).await {
+            warn!("ws error: {err}");
+        }
+    });
+
+    resp.into_response()
 }
 
-async fn handle_socket(mut socket: WebSocket, mut channel: Receiver<Bytes>) {
+async fn handle_socket(fut: UpgradeFut, mut channel: Receiver<Bytes>) -> yawc::Result<()> {
+    let mut socket = fut.await?;
+
     loop {
         while let Ok(message) = channel.recv().await {
             let Ok(stats) = bitcode::deserialize::<Stats>(&message) else {
@@ -29,7 +48,7 @@ async fn handle_socket(mut socket: WebSocket, mut channel: Receiver<Bytes>) {
                 continue;
             };
 
-            if let Err(err) = socket.send(Message::Text(message.into())).await {
+            if let Err(err) = socket.send(Frame::text(message)).await {
                 tracing::debug!("{err}, closing socket");
                 break;
             }
