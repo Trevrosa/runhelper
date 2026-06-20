@@ -23,8 +23,10 @@ use tokio::{
     task,
 };
 use tower_http::timeout::TimeoutLayer;
-use tracing::level_filters::LevelFilter;
-use tracing_subscriber::EnvFilter;
+use tracing::{Level, level_filters::LevelFilter};
+use tracing_subscriber::{
+    EnvFilter, filter::Targets, layer::SubscriberExt, util::SubscriberInitExt,
+};
 
 use crate::routes::{
     console, exec, info, ip, list, ping, running,
@@ -147,12 +149,15 @@ async fn main() -> anyhow::Result<()> {
         tracing::warn!("could not load .env: {err}");
     }
 
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            EnvFilter::builder()
-                .with_default_directive(LevelFilter::INFO.into())
-                .from_env_lossy(),
-        )
+    let filter = env::var(EnvFilter::DEFAULT_ENV).map_or(LevelFilter::INFO, |e| {
+        Level::from_str(&e)
+            .inspect_err(|e| eprintln!("defaulted to info: {e}"))
+            .unwrap_or(Level::INFO)
+            .into()
+    });
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer().compact())
+        .with(Targets::new().with_target(env!("CARGO_PKG_NAME"), filter))
         .init();
 
     let server_type = &*SERVER_TYPE;
