@@ -14,7 +14,11 @@ use axum::{Router, http::StatusCode};
 use reqwest::Url;
 use reqwest_websocket::Bytes;
 use tokio::{net::TcpListener, sync::broadcast};
-use tower_http::{services::ServeDir, timeout::TimeoutLayer, trace::TraceLayer};
+use tower_http::{
+    services::ServeDir,
+    timeout::TimeoutLayer,
+    trace::{DefaultOnEos, DefaultOnRequest, DefaultOnResponse, TraceLayer},
+};
 use tracing::{Level, level_filters::LevelFilter};
 use tracing_subscriber::{
     EnvFilter, filter::Targets, layer::SubscriberExt, util::SubscriberInitExt,
@@ -68,8 +72,21 @@ async fn main() -> anyhow::Result<()> {
             .into()
     });
     tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer().compact())
-        .with(Targets::new().with_target(env!("CARGO_PKG_NAME"), filter))
+        .with(tracing_subscriber::fmt::layer())
+        .with(
+            Targets::new()
+                .with_target(env!("CARGO_PKG_NAME"), filter)
+                .with_target(
+                    "tower_http",
+                    // do this because tower_http doesnt show the uri of the request on failure unless
+                    // the log level is >= DEBUG
+                    if filter > LevelFilter::DEBUG {
+                        filter
+                    } else {
+                        LevelFilter::DEBUG
+                    },
+                ),
+        )
         .init();
 
     LazyLock::force(&RUNNER_ADDR);
@@ -87,7 +104,12 @@ async fn main() -> anyhow::Result<()> {
         .nest("/api", api::basic_auth())
         .nest("/api", api::stop_auth())
         .with_state(app_state.clone())
-        .layer(TraceLayer::new_for_http())
+        .layer(
+            TraceLayer::new_for_http()
+                .on_request(DefaultOnRequest::new().level(Level::TRACE))
+                .on_response(DefaultOnResponse::new().level(Level::TRACE))
+                .on_eos(DefaultOnEos::new().level(Level::TRACE)),
+        )
         .layer(TimeoutLayer::with_status_code(
             StatusCode::REQUEST_TIMEOUT,
             Duration::from_secs(5),
