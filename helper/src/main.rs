@@ -14,11 +14,7 @@ use axum::{Router, http::StatusCode};
 use reqwest::Url;
 use reqwest_websocket::Bytes;
 use tokio::{net::TcpListener, sync::broadcast};
-use tower_http::{
-    services::ServeDir,
-    timeout::TimeoutLayer,
-    trace::{DefaultOnFailure, TraceLayer},
-};
+use tower_http::{services::ServeDir, timeout::TimeoutLayer, trace::TraceLayer};
 use tracing::{Level, level_filters::LevelFilter};
 use tracing_subscriber::{
     EnvFilter, filter::Targets, layer::SubscriberExt, util::SubscriberInitExt,
@@ -91,7 +87,7 @@ async fn main() -> anyhow::Result<()> {
         .nest("/api", api::basic_auth())
         .nest("/api", api::stop_auth())
         .with_state(app_state.clone())
-        .layer(TraceLayer::new_for_http().on_failure(DefaultOnFailure::new().level(Level::DEBUG)))
+        .layer(TraceLayer::new_for_http())
         .layer(TimeoutLayer::with_status_code(
             StatusCode::REQUEST_TIMEOUT,
             Duration::from_secs(5),
