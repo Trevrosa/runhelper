@@ -30,15 +30,24 @@ impl Project {
     }
 }
 
-impl From<Project> for Mod {
-    fn from(val: Project) -> Self {
+impl From<(Project, String)> for Mod {
+    fn from(val: (Project, String)) -> Self {
+        let (proj, version) = val;
         Mod::Resolved {
-            name: val.title,
-            author: val.author,
-            dependency: val.categories.iter().any(|s| s == "library"),
-            required: val.client_side == "required",
-            link: format!("https://modrinth.com/mod/{}", val.slug),
-            icon_url: val.icon_url,
+            name: proj.title,
+            author: proj.author,
+            version,
+            dependency: proj.categories.iter().any(|s| s == "library"),
+            required: proj.client_side == "required",
+            link: format!("https://modrinth.com/mod/{}", proj.slug),
+            icon_url: proj.icon_url,
         }
+    }
+}
+
+impl From<(Project, &str)> for Mod {
+    fn from(val: (Project, &str)) -> Self {
+        let val = (val.0, val.1.to_string());
+        From::from(val)
     }
 }

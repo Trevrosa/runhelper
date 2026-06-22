@@ -114,7 +114,6 @@ fn extract_jar(file: &Path, path: &str) -> anyhow::Result<String> {
 #[derive(Debug, Clone)]
 struct ModMeta {
     name: String,
-    #[allow(unused)]
     version: String,
     authors: Option<Vec<String>>,
     website: Option<String>,
@@ -166,7 +165,7 @@ async fn get_info(
 
         let mut r#mod = None;
         for query in queries.iter().rev() {
-            trace!("query: {query:?}");
+            tracing::info!("finding mod with {query:?}");
             let projs = modrinth::Project::find(client, query).await;
             let selected = select_meta(query, name.clone().into_owned(), projs, meta.clone());
             if let Some((this, stop)) = selected {
@@ -192,8 +191,8 @@ async fn get_info(
     })
 }
 
-fn slug_eq(a: &str, b: &str) -> bool {
-    a.to_ascii_lowercase().replace('-', "") == b.to_ascii_lowercase().replace([' ', '-'], "")
+fn slug_eq(slug: &str, b: &str) -> bool {
+    slug.to_ascii_lowercase().replace('-', "") == b.to_ascii_lowercase().replace([' ', '-'], "")
 }
 
 const FIRST_RESULTS: usize = 7;
@@ -211,6 +210,7 @@ fn select_meta(
                 return Some((
                     Mod::Unresolved {
                         filename,
+                        version: Some(meta.version),
                         website: meta.website,
                         author: None,
                     },
@@ -224,7 +224,7 @@ fn select_meta(
                         debug!("found mod but its server-sided");
                         return None;
                     }
-                    return Some((proj.into(), true));
+                    return Some(((proj, meta.version).into(), true));
                 }
 
                 // tested jaro is usually better than levenshtein etc
@@ -236,7 +236,7 @@ fn select_meta(
                     return None;
                 } else {
                     debug!("ok");
-                    return Some((proj.into(), true));
+                    return Some(((proj, meta.version).into(), true));
                 }
             }
 
@@ -244,6 +244,7 @@ fn select_meta(
             Some((
                 Mod::Unresolved {
                     filename,
+                    version: Some(meta.version),
                     website: meta.website,
                     author: Some(author),
                 },
@@ -257,13 +258,22 @@ fn select_meta(
                     debug!("found mod but its server-sided");
                     None
                 } else {
-                    Some((proj.into(), true))
+                    let version = filename
+                        .split('-')
+                        .next_back()
+                        .expect("never none")
+                        .split(".jar")
+                        .next()
+                        .expect("never none");
+                    debug!("guessing version");
+                    Some(((proj, version).into(), true))
                 }
             } else {
                 warn!("got results, but no file meta");
                 Some((
                     Mod::Unresolved {
                         filename,
+                        version: None,
                         author: None,
                         website: None,
                     },
@@ -276,6 +286,7 @@ fn select_meta(
             Some((
                 Mod::Unresolved {
                     filename,
+                    version: Some(meta.version),
                     author: meta.authors.and_then(|a| a.first().cloned()),
                     website: meta.website,
                 },
@@ -287,6 +298,7 @@ fn select_meta(
             Some((
                 Mod::Unresolved {
                     filename,
+                    version: None,
                     website: None,
                     author: None,
                 },

@@ -138,7 +138,7 @@ function createModCard(mod) {
     card.rel = "noopener noreferrer";
   }
 
-  if (isResolved && data.icon_url) {
+  if (isResolved) {
     const icon = document.createElement("img");
     icon.className = "server-mod-icon";
     icon.src = data.icon_url;
@@ -160,12 +160,14 @@ function createModCard(mod) {
   subtitle.className = "server-mod-subtitle";
 
   const badge = document.createElement("div");
+  badge.className = "server-mod-badges";
 
   if (isResolved) {
     title.textContent = data.name;
     subtitle.textContent = `by ${data.author ?? "Unknown"}`;
     let text = data.dependency ? "Dependency" : (data.required ? "Required" : "Optional")
     badge.appendChild(createModBadge(text, data.required || data.dependency ? "required" : "optional"));
+    badge.appendChild(createModBadge(data.version))
   } else {
     title.textContent = data?.filename ?? "Unknown mod";
     title.classList.add("monospace");
