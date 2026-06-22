@@ -42,20 +42,7 @@ async fn handle_socket(mut socket: WebSocket, mut channel: Receiver<String>, no_
     loop {
         match channel.recv().await {
             Ok(line) => {
-                let line = if no_filter {
-                    line
-                } else {
-                    // its from /list, safe to send raw.
-                    // TODO: regex to ensure this is console output
-                    if *SERVER_TYPE == ServerType::Minecraft && line.contains("]: There are") {
-                        line
-                    } else {
-                        // hide ips and coords
-                        line.chars()
-                            .map(|char| if char.is_ascii_digit() { '*' } else { char })
-                            .collect()
-                    }
-                };
+                let line = if no_filter { line } else { filter_line(line) };
 
                 if let Err(err) = socket.send(Message::text(line)).await {
                     tracing::warn!("{err}, closing socket");
@@ -71,4 +58,30 @@ async fn handle_socket(mut socket: WebSocket, mut channel: Receiver<String>, no_
             }
         }
     }
+}
+
+// TODO: can be extended to a filters module
+#[inline]
+fn mc_from_list(line: &str) -> bool {
+    let split: Vec<&str> = line.split(']').collect();
+
+    // `[12:34:56 INFO]: There are`
+    let paper = || split.get(1).is_some_and(|l| l.starts_with(": There are"));
+    // `[12:34:56] [Server thread/INFO] [minecraft/MinecraftServer]: There are`
+    let forge = || split.get(3).is_some_and(|l| l.starts_with(": There are"));
+
+    paper() || forge()
+}
+
+#[inline]
+fn filter_line(line: String) -> String {
+    // its from /list, safe to send raw.
+    if *SERVER_TYPE == ServerType::Minecraft && mc_from_list(&line) {
+        return line;
+    }
+
+    // hide ips and coords
+    line.chars()
+        .map(|char| if char.is_ascii_digit() { '*' } else { char })
+        .collect()
 }
