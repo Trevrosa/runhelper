@@ -88,7 +88,17 @@ struct Mod {
 fn get_meta(file: &Path) -> Result<ModMeta, Cow<'_, str>> {
     let meta = extract_jar(file, "META-INF/mods.toml").map_err(|e| e.to_string())?;
     let mut meta = toml::from_str::<Meta>(&meta).map_err(|e| e.to_string())?;
-    let r#mod = meta.mods.pop().ok_or("mods.toml missing metadata")?;
+    let mut r#mod = meta.mods.pop().ok_or("mods.toml missing metadata")?;
+
+    if r#mod.version == "${file.jarVersion}" {
+        let manifest = extract_jar(file, "META-INF/MANIFEST.MF").map_err(|e| e.to_string())?;
+        let impl_ver = manifest
+            .lines()
+            .find(|l| l.starts_with("Implementation-Version:"))
+            .and_then(|l| l.split(": ").last())
+            .ok_or("invalid MANIFEST.MF")?;
+        r#mod.version = impl_ver.to_string();
+    }
 
     let authors = StringOrMore::get_all(r#mod.authors.or(meta.authors));
 
