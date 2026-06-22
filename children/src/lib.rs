@@ -18,6 +18,10 @@ pub struct ProcessInfo {
 }
 
 /// returns the children of the `parent`.
+/// 
+/// # Errors
+/// 
+/// Will error if the platform's `get_processes` implementation errors.
 pub fn get_children(parent: u32) -> anyhow::Result<Vec<ProcessInfo>> {
     let processes = imp::get_processes()?;
 
