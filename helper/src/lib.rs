@@ -1,6 +1,7 @@
 use reqwest::Url;
 
 pub trait UrlExt {
+    #[must_use]
     fn join_unchecked(&self, input: &str) -> Self;
 }
 
