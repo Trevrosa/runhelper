@@ -2,7 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use futures_util::StreamExt;
 use helper::UrlExt;
-use reqwest_websocket::{self as reqwest_ws, Message, Upgrade};
+use reqwest_websocket::{self as reqwest_ws, CloseCode, Message, Upgrade};
 use tokio::signal;
 use tracing::instrument;
 
@@ -32,11 +32,7 @@ pub async fn stats_helper(state: Arc<AppState>) {
         let mut runner_ws = match runner_ws {
             Ok(ws) => ws,
             Err(err) => {
-                if let reqwest_websocket::Error::Reqwest(..) = err {
-                    tracing::error!("failed to connect, waiting {WS_TIMEOUT:?}..");
-                } else {
-                    tracing::debug!("failed to connect, waiting {WS_TIMEOUT:?}..");
-                }
+                tracing::error!("failed to connect ({err}), waiting {WS_TIMEOUT:?}..");
                 tokio::time::sleep(WS_TIMEOUT).await;
                 continue;
             }
@@ -62,7 +58,10 @@ pub async fn stats_helper(state: Arc<AppState>) {
             }
         }
 
-        tracing::warn!("stats ws closed, waiting {WS_TIMEOUT:?}..");
+        if let Err(err) = runner_ws.close(CloseCode::Normal, None).await {
+            tracing::warn!("failed to close socket: {err}");
+        }
+        tracing::warn!("waiting {WS_TIMEOUT:?} to reconnect..");
         tokio::time::sleep(WS_TIMEOUT).await;
     }
 }
@@ -75,11 +74,7 @@ pub async fn console_helper(state: Arc<AppState>) {
         let mut runner_ws = match runner_ws {
             Ok(ws) => ws,
             Err(err) => {
-                if let reqwest_websocket::Error::Reqwest(..) = err {
-                    tracing::error!("failed to connect, waiting {WS_TIMEOUT:?}..");
-                } else {
-                    tracing::debug!("failed to connect, waiting {WS_TIMEOUT:?}..");
-                }
+                tracing::error!("failed to connect ({err}), waiting {WS_TIMEOUT:?}..");
                 tokio::time::sleep(WS_TIMEOUT).await;
                 continue;
             }
@@ -105,7 +100,10 @@ pub async fn console_helper(state: Arc<AppState>) {
             }
         }
 
-        tracing::warn!("console ws closed, waiting {WS_TIMEOUT:?}..");
+        if let Err(err) = runner_ws.close(CloseCode::Normal, None).await {
+            tracing::warn!("failed to close socket: {err}");
+        }
+        tracing::warn!("waiting {WS_TIMEOUT:?} to reconnect..");
         tokio::time::sleep(WS_TIMEOUT).await;
     }
 }
