@@ -32,8 +32,8 @@ async fn handle_socket(mut socket: WebSocket, mut channel: Receiver<Stats>) {
                 // let msg = Message::text(format!("{stats:#?}"));
 
                 if let Err(err) = socket.send(msg).await {
-                    tracing::warn!("{err}, closing websocket");
-                    return;
+                    tracing::warn!("{err}, closing ws");
+                    break;
                 }
 
                 tokio::time::sleep(Duration::from_secs(1)).await;

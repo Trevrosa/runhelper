@@ -25,7 +25,7 @@ pub async fn stats(ws: IncomingUpgrade, State(state): AppState) -> Response {
             .into_response();
     };
 
-    tokio::spawn(async {
+    tokio::spawn(async move {
         if let Err(err) = handle_socket(fut, channel).await {
             warn!("ws error: {err}");
         }
@@ -37,22 +37,22 @@ pub async fn stats(ws: IncomingUpgrade, State(state): AppState) -> Response {
 async fn handle_socket(fut: UpgradeFut, mut channel: Receiver<Bytes>) -> yawc::Result<()> {
     let mut socket = fut.await?;
 
-    loop {
-        while let Ok(message) = channel.recv().await {
-            let Ok(stats) = bitcode::deserialize::<Stats>(&message) else {
-                tracing::warn!("failed to deserialize bitcode");
-                continue;
-            };
-            let Ok(message) = serde_json::to_string(&stats) else {
-                tracing::warn!("failed to serialize to json");
-                continue;
-            };
+    while let Ok(message) = channel.recv().await {
+        let Ok(stats) = bitcode::deserialize::<Stats>(&message) else {
+            tracing::warn!("failed to deserialize bitcode");
+            continue;
+        };
+        let Ok(message) = serde_json::to_string(&stats) else {
+            tracing::warn!("failed to serialize to json");
+            continue;
+        };
 
-            if let Err(err) = socket.send(Frame::text(message)).await {
-                tracing::debug!("{err}, closing socket");
-                break;
-            }
+        if let Err(err) = socket.send(Frame::text(message)).await {
+            tracing::debug!("{err}, closing socket");
+            break;
         }
-        tracing::debug!("ws closed");
     }
+
+    tracing::debug!("ws closed");
+    Ok(())
 }
