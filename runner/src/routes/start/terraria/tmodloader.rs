@@ -2,6 +2,8 @@
 use std::time::SystemTime;
 use std::{path::Path, process::Stdio};
 
+#[cfg(windows)]
+use anyhow::Context;
 use tokio::process::Command;
 
 use crate::ServerInfo;
@@ -37,8 +39,8 @@ pub(super) fn command(server_path: &Path) -> Command {
 }
 
 #[cfg(windows)]
-pub(super) fn info(server_path: &Path, start_time: SystemTime) -> Result<ServerInfo, &'static str> {
-    let version = version(server_path).map_err(|_| "could not get version from file")?;
+pub(super) fn info(server_path: &Path, start_time: SystemTime) -> anyhow::Result<ServerInfo> {
+    let version = version(server_path).context("finding version from file")?;
 
     Ok(ServerInfo {
         version,

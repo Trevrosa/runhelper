@@ -8,8 +8,9 @@ use anyhow::anyhow;
 use reqwest::Client;
 use serde::Deserialize;
 
-use super::{ModMeta, extract_jar};
+use super::meta;
 use crate::ServerInfo;
+use meta::{ModMeta, extract_jar};
 
 pub fn find_platform_args(server_path: &Path) -> anyhow::Result<PathBuf> {
     let forge_dir = server_path.join("libraries/net/minecraftforge/forge/");
@@ -115,7 +116,7 @@ pub(super) async fn info(
     start_time: SystemTime,
     client: &Client,
 ) -> anyhow::Result<ServerInfo> {
-    super::get_info(
+    meta::get_info(
         &server_path.join("libraries/net/minecraftforge/forge"),
         &server_path.join("mods"),
         "forge",

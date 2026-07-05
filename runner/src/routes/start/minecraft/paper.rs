@@ -3,8 +3,9 @@ use std::{borrow::Cow, env, fs::DirEntry, path::Path, time::SystemTime};
 use reqwest::Client;
 use serde::Deserialize;
 
-use super::{ModMeta, extract_jar};
+use super::meta;
 use crate::ServerInfo;
+use meta::{ModMeta, extract_jar};
 
 pub(super) fn args(server_path: &Path) -> Result<Vec<String>, &'static str> {
     let mut args = Vec::new();
@@ -91,7 +92,7 @@ pub(super) async fn info(
     start_time: SystemTime,
     client: &Client,
 ) -> anyhow::Result<ServerInfo> {
-    super::get_info(
+    meta::get_info(
         &server_path.join("versions"),
         &server_path.join("plugins"),
         "paper",

@@ -2,7 +2,7 @@ use anyhow::Context;
 use reqwest::Client;
 use serde::Deserialize;
 
-use super::Mod;
+use crate::Mod;
 
 #[derive(Debug, Deserialize)]
 pub struct Project {

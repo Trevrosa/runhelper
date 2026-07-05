@@ -1,10 +1,3 @@
-// TODO: make the two server types better integrated
-
-pub mod common;
-pub use common::Mod;
-mod minecraft;
-mod terraria;
-
 use std::sync::atomic::Ordering;
 
 use axum::extract::State;
@@ -14,6 +7,14 @@ use tokio::io::AsyncWriteExt;
 use crate::{SERVER_PATH, SERVER_TYPE, ServerType, tasks, warn_error};
 
 use super::AppState;
+
+pub mod common;
+use common::GameServer;
+
+mod minecraft;
+use minecraft::Minecraft;
+mod terraria;
+use terraria::Terraria;
 
 pub async fn start(State(state): AppState) -> (StatusCode, &'static str) {
     if state.server_running.load(Ordering::Relaxed) {
@@ -33,8 +34,8 @@ pub async fn start(State(state): AppState) -> (StatusCode, &'static str) {
 
     // run sets serverinfo
     let run = match *SERVER_TYPE {
-        ServerType::Minecraft => minecraft::run(state.clone(), server_path),
-        ServerType::Terraria => terraria::run(state.clone(), server_path),
+        ServerType::Minecraft => Minecraft::run(state.clone(), server_path),
+        ServerType::Terraria => Terraria::run(state.clone(), server_path),
     };
 
     let child = match run {

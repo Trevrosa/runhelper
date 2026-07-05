@@ -1,20 +1,41 @@
-use axum::http::StatusCode;
-use std::{path::Path, sync::Arc, time::SystemTime};
-use tokio::process::Child;
-use tracing::warn;
-
-use crate::AppState;
+use super::common::{GameServer, RunResult, Variant};
+use std::{path::Path, time::SystemTime};
 
 pub mod tmodloader;
 
-#[derive(Debug)]
+pub struct Terraria;
+
+#[derive(Debug, Clone, Copy)]
 pub enum ServerType {
     Vanilla,
     TModLoader,
 }
 
-impl ServerType {
-    pub fn detect(server_path: &Path) -> Option<Self> {
+impl GameServer<ServerType> for Terraria {
+    fn spawn(server_path: &Path, variant: ServerType) -> RunResult {
+        let mut cmd = match variant {
+            ServerType::TModLoader => tmodloader::command(server_path),
+            ServerType::Vanilla => todo!(),
+        };
+
+        Ok(cmd.spawn())
+    }
+
+    async fn server_info(
+        _client: &reqwest::Client,
+        server_path: &Path,
+        start_time: SystemTime,
+        variant: ServerType,
+    ) -> anyhow::Result<crate::ServerInfo> {
+        match variant {
+            ServerType::TModLoader => tmodloader::info(server_path, start_time),
+            ServerType::Vanilla => todo!(),
+        }
+    }
+}
+
+impl Variant for ServerType {
+    fn detect(server_path: &Path) -> Option<Self> {
         if server_path.join("TerrariaServer.exe").exists() {
             Some(Self::Vanilla)
         } else if server_path.join("tModLoader.dll").exists() {
@@ -23,42 +44,4 @@ impl ServerType {
             None
         }
     }
-}
-
-pub fn run(
-    state: Arc<AppState>,
-    server_path: &Path,
-) -> Result<tokio::io::Result<Child>, (StatusCode, &'static str)> {
-    let Some(server_type) = ServerType::detect(server_path) else {
-        tracing::warn!("no server detected at the configured path");
-        return Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "no server at the configured path!",
-        ));
-    };
-    tracing::debug!("detected server type {server_type:?}");
-
-    let mut cmd = match server_type {
-        ServerType::TModLoader => tmodloader::command(server_path),
-        ServerType::Vanilla => todo!(),
-    };
-
-    let server_path = server_path.to_owned();
-    tokio::spawn(async move {
-        let start_time = SystemTime::now();
-        let info = match server_type {
-            ServerType::TModLoader => tmodloader::info(&server_path, start_time),
-            ServerType::Vanilla => todo!(),
-        };
-        match info {
-            Ok(info) => {
-                state.server_info.write().await.replace(info);
-            }
-            Err(err) => warn!("could not find server info: {err}"),
-        }
-    });
-
-    let child = cmd.spawn();
-
-    Ok(child)
 }
