@@ -8,7 +8,7 @@ use tokio::process::Command;
 
 use crate::ServerInfo;
 
-pub(super) fn command(server_path: &Path) -> Command {
+pub fn command(server_path: &Path) -> Command {
     let exe = if cfg!(windows) {
         server_path.join("LaunchUtils/busybox64.exe")
     } else {
@@ -39,7 +39,7 @@ pub(super) fn command(server_path: &Path) -> Command {
 }
 
 #[cfg(windows)]
-pub(super) fn info(server_path: &Path, start_time: SystemTime) -> anyhow::Result<ServerInfo> {
+pub fn info(server_path: &Path, start_time: SystemTime) -> anyhow::Result<ServerInfo> {
     let version = version(server_path).context("finding version from file")?;
 
     Ok(ServerInfo {

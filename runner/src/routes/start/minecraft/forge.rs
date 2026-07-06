@@ -111,12 +111,12 @@ fn get_meta(file: &Path) -> Result<ModMeta, Cow<'_, str>> {
     })
 }
 
-pub(super) async fn info(
+pub async fn info(
     server_path: &Path,
     start_time: SystemTime,
     client: &Client,
 ) -> anyhow::Result<ServerInfo> {
-    meta::get_info(
+    meta::get_info_mods(
         &server_path.join("libraries/net/minecraftforge/forge"),
         &server_path.join("mods"),
         "forge",

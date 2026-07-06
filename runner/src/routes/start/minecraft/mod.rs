@@ -9,8 +9,9 @@ use crate::ServerInfo;
 mod meta;
 mod modrinth;
 
-pub mod forge;
-pub mod paper;
+mod forge;
+mod paper;
+mod vanilla;
 
 pub struct Minecraft;
 
@@ -26,7 +27,7 @@ impl GameServer<ServerType> for Minecraft {
         let args = match variant {
             ServerType::Forge => forge::args(server_path),
             ServerType::Paper => paper::args(server_path),
-            ServerType::Vanilla => todo!(),
+            ServerType::Vanilla => vanilla::args(server_path),
         };
 
         let args = match args {
@@ -54,7 +55,7 @@ impl GameServer<ServerType> for Minecraft {
         match variant {
             ServerType::Forge => forge::info(server_path, start_time, client).await,
             ServerType::Paper => paper::info(server_path, start_time, client).await,
-            ServerType::Vanilla => todo!(),
+            ServerType::Vanilla => vanilla::info(server_path, start_time).await,
         }
     }
 }

@@ -33,7 +33,24 @@ pub struct ModMeta {
     pub website: Option<String>,
 }
 
-pub async fn get_info(
+pub async fn get_version(versions: &Path, variant: &str) -> anyhow::Result<String> {
+    let mut versions = tokio::fs::read_dir(versions)
+        .await
+        .context("reading versions dir")?;
+
+    let mut version = Err(anyhow!("no version found"));
+
+    while let Ok(Some(file)) = versions.next_entry().await {
+        if let Some(ver) = file.file_name().to_string_lossy().split('-').next() {
+            version = Ok(format!("{ver} ({variant})"));
+            break;
+        }
+    }
+
+    version
+}
+
+pub async fn get_info_mods(
     versions: &Path,
     mods: &Path,
     variant: &str,
@@ -41,18 +58,7 @@ pub async fn get_info(
     start_time: SystemTime,
     client: &Client,
 ) -> anyhow::Result<ServerInfo> {
-    let mut versions = tokio::fs::read_dir(versions)
-        .await
-        .context("reading versions dir")?;
-
-    let mut version = None;
-
-    while let Ok(Some(file)) = versions.next_entry().await {
-        if let Some(ver) = file.file_name().to_string_lossy().split('-').next() {
-            version = Some(format!("{ver} ({variant})"));
-            break;
-        }
-    }
+    let version = get_version(versions, variant).await?;
 
     let mut mod_files = tokio::fs::read_dir(mods).await.context("reading mod dir")?;
     let mut paths = Vec::new();
@@ -100,7 +106,7 @@ pub async fn get_info(
 
     Ok(ServerInfo {
         start_time,
-        version: version.ok_or(anyhow!("no version found"))?,
+        version,
         mods,
     })
 }

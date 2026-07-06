@@ -7,9 +7,9 @@ use tracing::warn;
 
 use crate::{AppState, ServerInfo};
 
-pub type RunResult = Result<tokio::io::Result<Child>, (StatusCode, &'static str)>;
+pub(super) type RunResult = Result<tokio::io::Result<Child>, (StatusCode, &'static str)>;
 
-pub trait GameServer<V: Variant + Debug + Send + Copy + 'static> {
+pub(super) trait GameServer<V: Variant + Debug + Send + Copy + 'static> {
     /// Spawns the game server and sets the [`AppState`]'s `server_info` asynchronously.
     fn run(state: Arc<AppState>, server_path: &Path) -> RunResult {
         let Some(variant) = V::detect(server_path) else {
@@ -47,7 +47,7 @@ pub trait GameServer<V: Variant + Debug + Send + Copy + 'static> {
 }
 
 /// A game server's variant.
-pub trait Variant: Sized {
+pub(super) trait Variant: Sized {
     fn detect(server_path: &Path) -> Option<Self>;
 }
 
