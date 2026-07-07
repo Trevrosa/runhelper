@@ -1,3 +1,4 @@
+mod games;
 mod routes;
 mod tasks;
 
@@ -28,11 +29,8 @@ use tracing_subscriber::{
     EnvFilter, filter::Targets, layer::SubscriberExt, util::SubscriberInitExt,
 };
 
-use crate::routes::{
-    console, exec, info, ip, list, ping, running,
-    start::{self, common::Mod},
-    stats, stop,
-};
+use crate::games::Mod;
+use crate::routes::{console, exec, info, ip, list, ping, running, start, stats, stop};
 
 #[cfg(not(windows))]
 #[global_allocator]
@@ -119,6 +117,7 @@ pub static SERVER_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
 pub enum ServerType {
     Minecraft,
     Terraria,
+    Satisfactory,
 }
 
 impl FromStr for ServerType {
@@ -127,6 +126,7 @@ impl FromStr for ServerType {
         match s.to_lowercase().as_str() {
             "minecraft" => Ok(Self::Minecraft),
             "terraria" => Ok(Self::Terraria),
+            "satisfactory" => Ok(Self::Satisfactory),
             _ => Err(()),
         }
     }

@@ -712,7 +712,7 @@ function connectConsole() {
             } else if (resp.status == 503) {
               addConsoleMessage(`failed to send /list: server not on!`);
             } else {
-              addConsoleMessage(`failed to send /list: error ${resp.status}`);
+              addConsoleMessage(`failed to send /list: ${await resp.text()} (error ${resp.status})`);
             }
           }
         );

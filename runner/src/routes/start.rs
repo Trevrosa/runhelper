@@ -4,17 +4,9 @@ use axum::extract::State;
 use reqwest::StatusCode;
 use tokio::io::AsyncWriteExt;
 
-use crate::{SERVER_PATH, SERVER_TYPE, ServerType, tasks, warn_error};
-
 use super::AppState;
-
-pub mod common;
-use common::GameServer;
-
-mod minecraft;
-use minecraft::Minecraft;
-mod terraria;
-use terraria::Terraria;
+use crate::games::{GameServer, Minecraft, Satisfactory, Terraria};
+use crate::{SERVER_PATH, SERVER_TYPE, ServerType, tasks, warn_error};
 
 pub async fn start(State(state): AppState) -> (StatusCode, &'static str) {
     if state.server_running.load(Ordering::Relaxed) {
@@ -32,10 +24,10 @@ pub async fn start(State(state): AppState) -> (StatusCode, &'static str) {
 
     tracing::info!("got run request");
 
-    // run sets serverinfo
     let run = match *SERVER_TYPE {
         ServerType::Minecraft => Minecraft::run(state.clone(), server_path),
         ServerType::Terraria => Terraria::run(state.clone(), server_path),
+        ServerType::Satisfactory => Satisfactory::run(state.clone(), server_path),
     };
 
     let child = match run {
@@ -46,10 +38,13 @@ pub async fn start(State(state): AppState) -> (StatusCode, &'static str) {
         }
     };
 
-    let Ok(mut child) = child else {
-        state.server_starting.store(false, Ordering::Release);
-        tracing::error!("could not start server: {}", child.unwrap_err());
-        return (StatusCode::INTERNAL_SERVER_ERROR, "failed to run server");
+    let mut child = match child {
+        Ok(child) => child,
+        Err(err) => {
+            state.server_starting.store(false, Ordering::Release);
+            tracing::error!("could not start server: {err}");
+            return (StatusCode::INTERNAL_SERVER_ERROR, "failed to run server");
+        }
     };
 
     state.server_starting.store(false, Ordering::Release);

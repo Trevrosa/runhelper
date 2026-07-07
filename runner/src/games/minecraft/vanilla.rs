@@ -7,10 +7,7 @@ pub fn args(server_path: &Path) -> Result<Vec<String>, &'static str> {
     args_with_jar_name(server_path, "server")
 }
 
-pub fn args_with_jar_name(
-    server_path: &Path,
-    jar_name: &str,
-) -> Result<Vec<String>, &'static str> {
+pub fn args_with_jar_name(server_path: &Path, jar_name: &str) -> Result<Vec<String>, &'static str> {
     let mut args = Vec::new();
 
     if server_path.join("user_jvm_args.txt").exists() {

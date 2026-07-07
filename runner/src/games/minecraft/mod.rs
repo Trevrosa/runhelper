@@ -1,10 +1,11 @@
+use anyhow::anyhow;
 use axum::http::StatusCode;
 use reqwest::Client;
-use std::{path::Path, process::Stdio, time::SystemTime};
+use std::{path::Path, process::Stdio, sync::Arc, time::SystemTime};
 use tokio::process::Command;
 
-use super::common::{GameServer, RunResult, Variant};
-use crate::ServerInfo;
+use super::{GameServer, RunResult, Variant};
+use crate::{AppState, ServerInfo};
 
 mod meta;
 mod modrinth;
@@ -44,6 +45,14 @@ impl GameServer<ServerType> for Minecraft {
             .spawn();
 
         Ok(child)
+    }
+
+    fn stop(state: Arc<AppState>) -> anyhow::Result<()> {
+        if let Err(err) = state.server_stdin.send("/stop".to_string()) {
+            Err(anyhow!("failed to send `/stop`: {err}"))
+        } else {
+            Ok(())
+        }
     }
 
     async fn server_info(

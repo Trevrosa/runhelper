@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-anyhow = "1.0.102"
+anyhow = "1.0.103"
 axum = { version = "0.8.9", features = ["ws"] }
 bitcode = { version = "0.6.9", features = ["serde"] }
 dotenvy = "0.15"
@@ -26,6 +26,10 @@ zip = "8.6.0"
 [target.'cfg(windows)'.dependencies]
 mimalloc = "0.1"
 win32-version-info = "0.3.0"
+windows-sys = { version = "0.61", features = ["Win32_System_Console"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2.186"
 
 [target.'cfg(not(windows))'.dependencies]
 tikv-jemallocator = "0.6"

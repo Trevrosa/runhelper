@@ -1,13 +1,11 @@
-use std::{
-    process::{ExitStatus, Stdio},
-    sync::atomic::Ordering,
-    time::Duration,
-};
+use std::{sync::atomic::Ordering, time::Duration};
 
 use axum::extract::State;
 use reqwest::StatusCode;
-use tokio::process::Command;
+use runner::force_kill;
+use tracing::warn;
 
+use crate::games::{GameServer, Minecraft, Satisfactory, Terraria};
 use crate::{SERVER_TYPE, ServerType, routes::AppState};
 
 const WAIT_TIME: Duration = Duration::from_secs(10);
@@ -27,97 +25,56 @@ pub async fn stop(State(state): AppState) -> (StatusCode, &'static str) {
 
     state.server_stopping.store(true, Ordering::Release);
 
-    if *SERVER_TYPE == ServerType::Minecraft {
-        if let Err(err) = state.server_stdin.send("/stop".to_string()) {
-            tracing::warn!("failed to send /stop: {err}");
-        } else {
-            state.server_stopping.store(true, Ordering::Release);
+    let stop = match *SERVER_TYPE {
+        ServerType::Minecraft => Minecraft::stop(state.clone()),
+        ServerType::Terraria => Terraria::stop(state.clone()),
+        ServerType::Satisfactory => Satisfactory::stop(state.clone()),
+    };
+
+    match stop {
+        Ok(()) => state.server_stopping.store(true, Ordering::Release),
+        Err(err) => warn!("failed to stop server: {err}"),
+    }
+
+    state.server_stopping.store(false, Ordering::Release);
+
+    let state_1 = state.clone();
+    tokio::spawn(async move {
+        let loops = (WAIT_TIME.as_millis() / WAIT_INCRS.as_millis()) as usize;
+        for _ in 0..loops - 2 {
+            if !state_1.server_running.load(Ordering::Relaxed) {
+                state_1.server_stopping.store(false, Ordering::Release);
+                tracing::debug!("server stopped within {WAIT_TIME:?}!");
+                break;
+            }
+
+            tokio::time::sleep(WAIT_INCRS).await;
+        }
+    });
+
+    // force killer
+    tokio::spawn(async move {
+        tokio::time::sleep(WAIT_TIME).await;
+
+        if !state.server_stopping.load(Ordering::Relaxed) {
+            return;
         }
 
-        let state_1 = state.clone();
-        tokio::spawn(async move {
-            let loops = (WAIT_TIME.as_millis() / WAIT_INCRS.as_millis()) as usize;
-            for _ in 0..loops - 2 {
-                if !state_1.server_running.load(Ordering::Relaxed) {
-                    state_1.server_stopping.store(false, Ordering::Release);
-                    tracing::debug!("server stopped within {WAIT_TIME:?}!");
-                    break;
-                }
+        if !state.server_running.load(Ordering::Relaxed) {
+            return;
+        }
 
-                tokio::time::sleep(WAIT_INCRS).await;
-            }
-        });
+        tracing::info!("server still running, killing now");
 
-        tokio::spawn(async move {
-            tokio::time::sleep(WAIT_TIME).await;
-
-            if !state.server_stopping.load(Ordering::Relaxed) {
-                return;
-            }
-
-            if !state.server_running.load(Ordering::Relaxed) {
-                return;
-            }
-
-            tracing::info!("server still running, killing now");
-
-            let pid = state.server_pid.load(Ordering::Relaxed);
-            if pid == 0 {
-                tracing::error!("server is running, but pid is 0?");
-            } else {
-                kill(pid).await;
-            }
-
-            state.server_stopping.store(false, Ordering::Release);
-        });
-    } else {
         let pid = state.server_pid.load(Ordering::Relaxed);
         if pid == 0 {
-            tracing::warn!("server is running, but pid is 0?");
+            tracing::error!("server is running, but pid is 0?");
         } else {
-            kill(pid).await;
+            force_kill(pid);
         }
 
         state.server_stopping.store(false, Ordering::Release);
-    }
+    });
 
     (StatusCode::OK, "stopped server!")
-}
-
-// sends `SIGKILL` on unix, `WM_QUIT` on windows.
-async fn kill(pid: u32) {
-    let report_status = |status: ExitStatus| {
-        if !status.success() {
-            tracing::error!("killing {pid} failed with {status}");
-        }
-    };
-
-    if cfg!(windows) {
-        match Command::new("taskkill")
-            .arg("/pid")
-            .arg(pid.to_string())
-            .arg("/f")
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .await
-        {
-            Ok(status) => report_status(status),
-            Err(err) => tracing::warn!("failed to kill; {err}"),
-        }
-    } else if cfg!(unix) {
-        match Command::new("kill")
-            .arg("-9")
-            .arg(pid.to_string())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .await
-        {
-            Ok(status) => report_status(status),
-            Err(err) => tracing::warn!("failed to kill; {err}"),
-        }
-    } else {
-        tracing::error!("cannot kill server, not windows or unix.");
-    }
 }

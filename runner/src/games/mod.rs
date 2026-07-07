@@ -4,8 +4,17 @@ use reqwest::{Client, StatusCode};
 use serde::Serialize;
 use tokio::process::Child;
 use tracing::warn;
+#[cfg(windows)]
+use win32_version_info::VersionInfo;
 
 use crate::{AppState, ServerInfo};
+
+mod minecraft;
+pub use minecraft::Minecraft;
+mod satisfactory;
+pub use satisfactory::Satisfactory;
+mod terraria;
+pub use terraria::Terraria;
 
 pub(super) type RunResult = Result<tokio::io::Result<Child>, (StatusCode, &'static str)>;
 
@@ -37,6 +46,8 @@ pub(super) trait GameServer<V: Variant + Debug + Send + Copy + 'static> {
     }
     /// Spawns the game server.
     fn spawn(server_path: &Path, variant: V) -> RunResult;
+    /// Gracefully stops the game server. Should not block.
+    fn stop(state: Arc<AppState>) -> anyhow::Result<()>;
     /// Gets the server's info.
     fn server_info(
         client: &Client,
@@ -72,4 +83,10 @@ pub enum Mod {
         author: Option<String>,
         website: Option<String>,
     },
+}
+
+#[cfg(windows)]
+fn version_info(file_path: &Path) -> anyhow::Result<VersionInfo> {
+    use win32_version_info::VersionInfo;
+    Ok(VersionInfo::from_file(file_path)?)
 }

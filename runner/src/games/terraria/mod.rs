@@ -1,5 +1,8 @@
-use super::common::{GameServer, RunResult, Variant};
-use std::{path::Path, time::SystemTime};
+use anyhow::anyhow;
+use std::{path::Path, sync::Arc, time::SystemTime};
+
+use super::{GameServer, RunResult, Variant};
+use crate::AppState;
 
 pub mod tmodloader;
 
@@ -19,6 +22,14 @@ impl GameServer<ServerType> for Terraria {
         };
 
         Ok(cmd.spawn())
+    }
+
+    fn stop(state: Arc<AppState>) -> anyhow::Result<()> {
+        if let Err(err) = state.server_stdin.send("exit".to_string()) {
+            Err(anyhow!("failed to send `exit`: {err}"))
+        } else {
+            Ok(())
+        }
     }
 
     async fn server_info(

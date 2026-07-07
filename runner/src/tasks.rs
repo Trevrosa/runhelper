@@ -6,6 +6,7 @@ use std::{
 
 use children::get_children;
 use common::Stats;
+use runner::force_kill;
 use sysinfo::{Cpu, MemoryRefreshKind, Pid, ProcessRefreshKind, RefreshKind, System};
 use tokio::{
     io::{AsyncBufReadExt, AsyncRead, AsyncWriteExt, BufReader},
@@ -15,7 +16,10 @@ use tokio::{
 };
 use tracing::instrument;
 
-use crate::AppState;
+use crate::{
+    AppState, SERVER_TYPE, ServerType,
+    games::{GameServer, Minecraft, Satisfactory, Terraria},
+};
 
 /// how many times to wait for the server to shutdown
 const SERVER_SHUTDOWN_RETRIES: u32 = 3;
@@ -47,22 +51,49 @@ pub async fn shutdown(state: Arc<AppState>) {
 
     tracing::info!("shutting down..");
 
-    if let Err(err) = state.server_stdin.send("/stop".to_string()) {
-        tracing::warn!("could not send /stop: {err}");
+    if !state.server_running.load(Ordering::Relaxed) {
+        return;
+    }
+
+    let stop = match *SERVER_TYPE {
+        ServerType::Minecraft => Minecraft::stop,
+        ServerType::Terraria => Terraria::stop,
+        ServerType::Satisfactory => Satisfactory::stop,
+    };
+
+    match stop(state.clone()) {
+        Ok(()) => state.server_running.store(false, Ordering::Release),
+        Err(err) => tracing::warn!("could not stop server: {err}"),
     }
 
     let mut retries = 0;
     while state.server_running.load(Ordering::Relaxed) {
         if retries == SERVER_SHUTDOWN_RETRIES {
             tracing::warn!("reached maximum retries, shutting down anyway");
-            return;
+            break;
         }
 
         tracing::debug!("waiting for server to stop");
         tokio::time::sleep(Duration::from_secs(1)).await;
         retries += 1;
 
-        let _ = state.server_stdin.send("/stop".to_string());
+        match stop(state.clone()) {
+            Ok(()) => state.server_running.store(false, Ordering::Release),
+            Err(err) => tracing::warn!("could not stop server: {err}"),
+        }
+    }
+
+    if !state.server_running.load(Ordering::Relaxed) {
+        tracing::info!("shut down game server gracefully");
+        return;
+    }
+
+    let pid = state.server_pid.load(Ordering::Relaxed);
+    if pid != 0 {
+        tracing::warn!("force killing server with pid {pid}");
+        force_kill(pid);
+    } else {
+        tracing::warn!("could not force kill because pid is 0");
     }
 }
 

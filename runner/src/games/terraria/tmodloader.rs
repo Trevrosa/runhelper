@@ -40,17 +40,15 @@ pub fn command(server_path: &Path) -> Command {
 
 #[cfg(windows)]
 pub fn info(server_path: &Path, start_time: SystemTime) -> anyhow::Result<ServerInfo> {
-    let version = version(server_path).context("finding version from file")?;
+    use crate::games::version_info;
+
+    let version = version_info(&server_path.join("tModLoader.dll"))
+        .context("finding version from file")?
+        .file_version;
 
     Ok(ServerInfo {
         version,
         start_time,
         mods: vec![],
     })
-}
-
-#[cfg(windows)]
-fn version(server_path: &Path) -> anyhow::Result<String> {
-    use win32_version_info::VersionInfo;
-    Ok(VersionInfo::from_file(server_path.join("tModLoader.dll"))?.file_version)
 }
