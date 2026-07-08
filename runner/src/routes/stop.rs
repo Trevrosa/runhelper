@@ -36,8 +36,6 @@ pub async fn stop(State(state): AppState) -> (StatusCode, &'static str) {
         Err(err) => warn!("failed to stop server: {err}"),
     }
 
-    state.server_stopping.store(false, Ordering::Release);
-
     let state_1 = state.clone();
     tokio::spawn(async move {
         let loops = (WAIT_TIME.as_millis() / WAIT_INCRS.as_millis()) as usize;
