@@ -1,4 +1,5 @@
 use std::{
+    env,
     path::Path,
     process::Stdio,
     sync::{Arc, atomic::Ordering},
@@ -10,7 +11,7 @@ use reqwest::Client;
 use tokio::process::Command;
 
 use super::{GameServer, RunResult, Variant};
-use crate::{AppState, ServerInfo, games::version_info};
+use crate::{AppState, ServerInfo, games::{ARG_SEP, version_info}};
 
 pub struct Satisfactory;
 
@@ -38,6 +39,10 @@ impl GameServer<ServerType> for Satisfactory {
             cmd.creation_flags(CREATE_NEW_PROCESS_GROUP);
         } else {
             cmd.arg("FactoryServer.sh").current_dir(server_path);
+        }
+
+        if let Ok(user_args) = env::var("GAME_ARGS") {
+            cmd.args(user_args.trim().split(ARG_SEP).map(ToString::to_string));
         }
 
         let child = cmd

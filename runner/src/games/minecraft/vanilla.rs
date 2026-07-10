@@ -1,7 +1,7 @@
 use std::{env, ffi::OsString, fs::DirEntry, path::Path, time::SystemTime};
 
 use super::meta::get_version;
-use crate::ServerInfo;
+use crate::{ServerInfo, games::ARG_SEP};
 
 pub fn args(server_path: &Path) -> Result<Vec<String>, &'static str> {
     args_with_jar_name(server_path, "server")
@@ -12,9 +12,8 @@ pub fn args_with_jar_name(server_path: &Path, jar_name: &str) -> Result<Vec<Stri
 
     if server_path.join("user_jvm_args.txt").exists() {
         args.push("@user_jvm_args.txt".to_string());
-    } else if let Ok(jvm_args) = env::var("PAPER_ARGS") {
-        let jvm_args = jvm_args.trim().split(' ').map(ToString::to_string);
-        args.extend(jvm_args);
+    } else if let Ok(jvm_args) = env::var("GAME_ARGS") {
+        args.extend(jvm_args.trim().split(ARG_SEP).map(ToString::to_string));
     } else {
         tracing::warn!("could not find `user_jvm_args.txt` file");
     }

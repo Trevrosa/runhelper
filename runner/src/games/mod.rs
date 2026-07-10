@@ -16,6 +16,8 @@ pub use satisfactory::Satisfactory;
 mod terraria;
 pub use terraria::Terraria;
 
+pub(super) const ARG_SEP: char = '\\';
+
 pub(super) type RunResult = Result<tokio::io::Result<Child>, (StatusCode, &'static str)>;
 
 pub(super) trait GameServer<V: Variant + Debug + Send + Copy + 'static> {

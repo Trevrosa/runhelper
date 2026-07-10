@@ -1,6 +1,8 @@
 # runner
 
-this is meant to be run on the computer that will be running the minecraft server.
+**only tested and builds on windows**
+
+this is meant to be run on the computer that will be running the game server.
 
 should only be accessible locally.
 
@@ -10,13 +12,20 @@ the binary can be run with the argument `--wd` to set the program's working dire
 
 ### environment variables
 
-- `SERVER_TYPE` should be the type of server (`minecraft` or `terraria`) (optional, default `minecraft`)
-- `SERVER_DIR` should be the path to the server.
-- `RUNNER_PORT` controls the port of the server (optional, default `4321`)
-- `SHOW_CONSOLE` (`true` or `false`) controls whether or not the minecraft server's console is shown in the runner's stdout. (optional, default `false`)
-- `PAPER_ARGS` sets the jvm args to be used when running any paper server. args should be space-separated. (optional)
+- `SERVER_DIR` should be the path to the game server (required)
+- `SERVER_TYPE` should be the type of game server (`minecraft`, `terraria`, `satisfactory`, etc.) (optional, default `minecraft`)
+- `RUNNER_PORT` controls the `runner`'s port (optional, default `4321`)
+- `SHOW_CONSOLE` (`true` or `false`) controls whether or not the game server's console is shown in the `runner`'s stdout. (optional, default `false`)
+- `RUST_LOG` can be set to change the [log level](https://docs.rs/tracing/latest/tracing/struct.Level.html#implementations) of the `helper` (optional, default `info`)
+- `GAME_ARGS` sets the args to be used when running a game server. args must be separated with a backslash (`\`). (optional)
 
-## notes
+## game-specific notes
 
-- for `forge` servers, `runner` respects the `user_jvm_args.txt` file at the server directory.
-- for `paper` servers, if the file `user_jvm_args.txt` exists at the server directory, it takes precedence over `PAPER_ARGS`.
+### minecraft
+
+- `GAME_ARGS` sets the jvm args.
+- for `paper`, `forge`, and `vanilla`, if the file `user_jvm_args.txt` exists at the server directory, it takes precedence over `GAME_ARGS`.
+
+### terraria
+
+- instead of setting `GAME_ARGS`, you can create a [`terrariaConfig.txt`](https://terraria.wiki.gg/wiki/Guide:Setting_up_a_Terraria_server#Making_a_configuration_file) at the `runner`'s working directory.

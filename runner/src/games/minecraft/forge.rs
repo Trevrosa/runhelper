@@ -1,5 +1,6 @@
 use std::{
     borrow::Cow,
+    env,
     path::{Path, PathBuf},
     time::SystemTime,
 };
@@ -8,9 +9,8 @@ use anyhow::anyhow;
 use reqwest::Client;
 use serde::Deserialize;
 
-use super::meta;
-use crate::ServerInfo;
-use meta::{ModMeta, extract_jar};
+use super::meta::{self, ModMeta, extract_jar};
+use crate::{ServerInfo, games::ARG_SEP};
 
 pub fn find_platform_args(server_path: &Path) -> anyhow::Result<PathBuf> {
     let forge_dir = server_path.join("libraries/net/minecraftforge/forge/");
@@ -36,6 +36,8 @@ pub fn args(server_path: &Path) -> Result<Vec<String>, &'static str> {
 
     if server_path.join("user_jvm_args.txt").exists() {
         args.push("@user_jvm_args.txt".to_string());
+    } else if let Ok(jvm_args) = env::var("GAME_ARGS") {
+        args.extend(jvm_args.trim().split(ARG_SEP).map(ToString::to_string));
     } else {
         tracing::warn!("could not find `user_jvm_args.txt` file");
     }

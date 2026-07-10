@@ -4,7 +4,8 @@ use std::{path::Path, sync::Arc, time::SystemTime};
 use super::{GameServer, RunResult, Variant};
 use crate::AppState;
 
-pub mod tmodloader;
+mod tmodloader;
+mod vanilla;
 
 pub struct Terraria;
 
@@ -18,7 +19,7 @@ impl GameServer<ServerType> for Terraria {
     fn spawn(server_path: &Path, variant: ServerType) -> RunResult {
         let mut cmd = match variant {
             ServerType::TModLoader => tmodloader::command(server_path),
-            ServerType::Vanilla => todo!(),
+            ServerType::Vanilla => vanilla::command(server_path),
         };
 
         Ok(cmd.spawn())
@@ -40,7 +41,7 @@ impl GameServer<ServerType> for Terraria {
     ) -> anyhow::Result<crate::ServerInfo> {
         match variant {
             ServerType::TModLoader => tmodloader::info(server_path, start_time),
-            ServerType::Vanilla => todo!(),
+            ServerType::Vanilla => vanilla::info(server_path, start_time),
         }
     }
 }

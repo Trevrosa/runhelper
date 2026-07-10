@@ -2,11 +2,11 @@
 
 this project contains a `helper` and a `runner`.
 
-## the `helper`
+## `helper`
 the `helper` is meant to be exposed to the internet and lets users control `runner` limitedly.
 
-## the `runner`
-the `runner` only talks to the `helper` through the local network. it runs a minecraft server on demand and broadcasts system metrics and the server console via websocket.
+## `runner`
+the `runner` only talks to the `helper` through the local network. it runs a game server on demand and broadcasts system metrics and the server console via websocket.
 
 ## `runner` & `helper`
 the `helper` runs at all times, while the `runner` runs sometimes.

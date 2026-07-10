@@ -1,31 +1,22 @@
+use std::{env, process::Stdio};
 #[cfg(windows)]
-use std::time::SystemTime;
-use std::{env, path::Path, process::Stdio};
+use std::{path::Path, time::SystemTime};
 
 #[cfg(windows)]
+use anyhow::Context;
 use tokio::process::Command;
 
-use crate::{ServerInfo, games::ARG_SEP};
+#[cfg(windows)]
+use crate::ServerInfo;
+use crate::games::ARG_SEP;
 
 pub fn command(server_path: &Path) -> Command {
-    let exe = if cfg!(windows) {
-        server_path.join("LaunchUtils/busybox64.exe")
-    } else {
-        "bash".into()
-    };
-
-    let mut cmd = Command::new(exe);
-
-    if cfg!(windows) {
-        cmd.arg("bash")
-            .env("WINDOWS_MAJOR", "10")
-            .env("WINDOWS_MINOR", "0");
-    }
-
+    let mut cmd = Command::new(server_path.join("TerrariaServer.exe"));
+    
     if let Ok(user_args) = env::var("GAME_ARGS") {
         cmd.args(user_args.trim().split(ARG_SEP).map(ToString::to_string));
     }
-
+    
     let config_file = env::current_dir()
         .expect("should have permission and exist")
         .join("terrariaConfig.txt");
@@ -34,17 +25,25 @@ pub fn command(server_path: &Path) -> Command {
         cmd.arg(config_file);
     }
 
-    cmd.arg(server_path.join("start-tModLoaderServer.sh"))
-        .stdout(Stdio::piped())
+    cmd.stdout(Stdio::piped())
         .stdin(Stdio::piped())
         .stderr(Stdio::piped())
         .current_dir(server_path);
-
+    
     cmd
 }
 
-// TODO: discover mods
 #[cfg(windows)]
 pub fn info(server_path: &Path, start_time: SystemTime) -> anyhow::Result<ServerInfo> {
-    super::vanilla::info(server_path, start_time)
+    use crate::games::version_info;
+
+    let version = version_info(&server_path.join("TerrariaServer.exe"))
+        .context("finding version from file")?
+        .file_version;
+
+    Ok(ServerInfo {
+        version,
+        start_time,
+        mods: vec![],
+    })
 }
