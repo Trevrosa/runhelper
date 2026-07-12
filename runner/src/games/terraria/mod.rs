@@ -1,24 +1,30 @@
 use anyhow::anyhow;
-use std::{path::Path, sync::Arc, time::SystemTime};
+use std::{
+    env::{self, current_dir},
+    path::{Path, PathBuf},
+    sync::Arc,
+    time::SystemTime,
+};
 
 use super::{GameServer, RunResult, Variant};
 use crate::AppState;
 
 mod tmodloader;
 mod vanilla;
+mod workshop;
 
 pub struct Terraria;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum ServerType {
     Vanilla,
-    TModLoader,
+    TModLoader(PathBuf),
 }
 
 impl GameServer<ServerType> for Terraria {
     fn spawn(server_path: &Path, variant: ServerType) -> RunResult {
         let mut cmd = match variant {
-            ServerType::TModLoader => tmodloader::command(server_path),
+            ServerType::TModLoader(_) => tmodloader::command(server_path),
             ServerType::Vanilla => vanilla::command(server_path),
         };
 
@@ -34,13 +40,15 @@ impl GameServer<ServerType> for Terraria {
     }
 
     async fn server_info(
-        _client: &reqwest::Client,
+        client: &reqwest::Client,
         server_path: &Path,
         start_time: SystemTime,
         variant: ServerType,
     ) -> anyhow::Result<crate::ServerInfo> {
         match variant {
-            ServerType::TModLoader => tmodloader::info(server_path, start_time),
+            ServerType::TModLoader(world) => {
+                tmodloader::info(client, server_path, world, start_time).await
+            }
             ServerType::Vanilla => vanilla::info(server_path, start_time),
         }
     }
@@ -51,9 +59,35 @@ impl Variant for ServerType {
         if server_path.join("TerrariaServer.exe").exists() {
             Some(Self::Vanilla)
         } else if server_path.join("tModLoader.dll").exists() {
-            Some(Self::TModLoader)
+            let Some(config) = find_config() else {
+                tracing::error!("could not determine world location from config or args");
+                return None;
+            };
+
+            let mut world = None;
+
+            for line in config.lines() {
+                if line.starts_with("world=") {
+                    world = Some(line.split('=').next_back()?);
+                    break;
+                }
+            }
+
+            if let Some(world) = world {
+                Some(Self::TModLoader(PathBuf::from(world)))
+            } else {
+                tracing::error!("world was not set in config");
+                None
+            }
         } else {
             None
         }
     }
+}
+
+fn find_config() -> Option<String> {
+    let file_config = std::fs::read_to_string(current_dir().ok()?.join("terrariaConfig.txt")).ok();
+    let user_config = env::var("GAME_ARGS").ok();
+
+    file_config.or(user_config)
 }

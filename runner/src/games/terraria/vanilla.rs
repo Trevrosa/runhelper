@@ -12,11 +12,11 @@ use crate::games::ARG_SEP;
 
 pub fn command(server_path: &Path) -> Command {
     let mut cmd = Command::new(server_path.join("TerrariaServer.exe"));
-    
+
     if let Ok(user_args) = env::var("GAME_ARGS") {
         cmd.args(user_args.trim().split(ARG_SEP).map(ToString::to_string));
     }
-    
+
     let config_file = env::current_dir()
         .expect("should have permission and exist")
         .join("terrariaConfig.txt");
@@ -29,7 +29,7 @@ pub fn command(server_path: &Path) -> Command {
         .stdin(Stdio::piped())
         .stderr(Stdio::piped())
         .current_dir(server_path);
-    
+
     cmd
 }
 

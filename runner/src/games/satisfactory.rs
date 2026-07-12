@@ -11,11 +11,14 @@ use reqwest::Client;
 use tokio::process::Command;
 
 use super::{GameServer, RunResult, Variant};
-use crate::{AppState, ServerInfo, games::{ARG_SEP, version_info}};
+use crate::{
+    AppState, ServerInfo,
+    games::{ARG_SEP, version_info},
+};
 
 pub struct Satisfactory;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum ServerType {
     BaseGame,
 }

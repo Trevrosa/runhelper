@@ -18,6 +18,7 @@ the binary can be run with the argument `--wd` to set the program's working dire
 - `SHOW_CONSOLE` (`true` or `false`) controls whether or not the game server's console is shown in the `runner`'s stdout. (optional, default `false`)
 - `RUST_LOG` can be set to change the [log level](https://docs.rs/tracing/latest/tracing/struct.Level.html#implementations) of the `helper` (optional, default `info`)
 - `GAME_ARGS` sets the args to be used when running a game server. args must be separated with a backslash (`\`). (optional)
+- `STEAM_APIKEY` sets your [steamworks web api key](https://partner.steamgames.com/doc/webapi_overview/auth) to use to search mods for tmodloader (required if `SERVER_TYPE` is `terraria`)
 
 ## game-specific notes
 

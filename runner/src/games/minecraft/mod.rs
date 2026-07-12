@@ -16,7 +16,7 @@ mod vanilla;
 
 pub struct Minecraft;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum ServerType {
     Forge,
     Paper,

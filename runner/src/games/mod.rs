@@ -20,7 +20,7 @@ pub(super) const ARG_SEP: char = '\\';
 
 pub(super) type RunResult = Result<tokio::io::Result<Child>, (StatusCode, &'static str)>;
 
-pub(super) trait GameServer<V: Variant + Debug + Send + Copy + 'static> {
+pub(super) trait GameServer<V: Variant + Debug + Send + Clone + 'static> {
     /// Spawns the game server and sets the [`AppState`]'s `server_info` asynchronously.
     fn run(state: Arc<AppState>, server_path: &Path) -> RunResult {
         let Some(variant) = V::detect(server_path) else {
@@ -33,10 +33,11 @@ pub(super) trait GameServer<V: Variant + Debug + Send + Copy + 'static> {
         tracing::debug!("detected server type {variant:?}");
 
         let owned_path = server_path.to_owned();
+        let variant_1 = variant.clone();
         tokio::spawn(async move {
             let start_time = SystemTime::now();
             tracing::info!("detecting server info");
-            match Self::server_info(&state.client, &owned_path, start_time, variant).await {
+            match Self::server_info(&state.client, &owned_path, start_time, variant_1).await {
                 Ok(info) => {
                     tracing::info!("found server info ({:?})", start_time.elapsed());
                     state.server_info.write().await.replace(info);
