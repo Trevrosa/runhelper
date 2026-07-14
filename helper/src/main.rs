@@ -21,7 +21,7 @@ use tower_http::{
 };
 use tracing::{Level, level_filters::LevelFilter};
 use tracing_subscriber::{
-    EnvFilter, filter::Targets, layer::SubscriberExt, util::SubscriberInitExt,
+    EnvFilter, Layer, filter::Targets, layer::SubscriberExt, util::SubscriberInitExt,
 };
 
 use crate::tasks::{console_helper, stats_helper};
@@ -71,8 +71,16 @@ async fn main() -> anyhow::Result<()> {
             .unwrap_or(Level::INFO)
             .into()
     });
+
+    let fmt = tracing_subscriber::fmt::layer();
+    let fmt = if env::var("INVOCATION_ID").is_ok() {
+        fmt.without_time().boxed()
+    } else {
+        fmt.boxed()
+    };
+
     tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer())
+        .with(fmt)
         .with(
             Targets::new()
                 .with_target(env!("CARGO_PKG_NAME"), filter)
