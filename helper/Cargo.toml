@@ -19,7 +19,6 @@ serde_json = "1.0.150"
 wake-on-lan = "0.2"
 
 common = { path = "../common" }
-yawc = { version = "0.3.3", features = ["axum"] }
 
 [target.'cfg(windows)'.dependencies]
 mimalloc = "0.1"

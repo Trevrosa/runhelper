@@ -1,42 +1,23 @@
-use axum::http::StatusCode;
 use axum::{
-    extract::State,
-    response::{IntoResponse, Response},
+    extract::{
+        State, WebSocketUpgrade,
+        ws::{Message, WebSocket},
+    },
+    response::Response,
 };
 use common::Stats;
-use futures_util::SinkExt;
 use reqwest_websocket::Bytes;
 use tokio::sync::broadcast::Receiver;
-use tracing::warn;
-use yawc::{CompressionLevel, Frame, IncomingUpgrade, UpgradeFut};
 
 use super::AppState;
 
 /// forward the websocket from the local runner.
-pub async fn stats(ws: IncomingUpgrade, State(state): AppState) -> Response {
+pub async fn stats(ws: WebSocketUpgrade, State(state): AppState) -> Response {
     let channel = state.stats.subscribe();
-
-    let options = yawc::Options::default().with_compression_level(CompressionLevel::new(4));
-    let Ok((resp, fut)) = ws.upgrade(options) else {
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "failed to create websocket",
-        )
-            .into_response();
-    };
-
-    tokio::spawn(async move {
-        if let Err(err) = handle_socket(fut, channel).await {
-            warn!("ws error: {err}");
-        }
-    });
-
-    resp.into_response()
+    ws.on_upgrade(move |socket| handle_socket(socket, channel))
 }
 
-async fn handle_socket(fut: UpgradeFut, mut channel: Receiver<Bytes>) -> yawc::Result<()> {
-    let mut socket = fut.await?;
-
+async fn handle_socket(mut socket: WebSocket, mut channel: Receiver<Bytes>) {
     while let Ok(message) = channel.recv().await {
         let Ok(stats) = bitcode::deserialize::<Stats>(&message) else {
             tracing::warn!("failed to deserialize bitcode");
@@ -47,12 +28,11 @@ async fn handle_socket(fut: UpgradeFut, mut channel: Receiver<Bytes>) -> yawc::R
             continue;
         };
 
-        if let Err(err) = socket.send(Frame::text(message)).await {
+        if let Err(err) = socket.send(Message::Text(message.into())).await {
             tracing::debug!("{err}, closing socket");
             break;
         }
     }
 
     tracing::debug!("ws closed");
-    Ok(())
 }
