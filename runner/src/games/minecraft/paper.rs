@@ -49,6 +49,7 @@ pub async fn info(
     client: &Client,
 ) -> anyhow::Result<ServerInfo> {
     meta::get_info_mods(
+        server_path,
         &server_path.join("versions"),
         &server_path.join("plugins"),
         "paper",

@@ -6,23 +6,22 @@ use std::{path::Path, time::SystemTime};
 use anyhow::Context;
 use tokio::process::Command;
 
-#[cfg(windows)]
-use crate::ServerInfo;
 use crate::games::ARG_SEP;
+#[cfg(windows)]
+use crate::{ServerInfo, games::get_arg_or};
 
 pub fn command(server_path: &Path) -> Command {
     let mut cmd = Command::new(server_path.join("TerrariaServer.exe"));
 
-    if let Ok(user_args) = env::var("GAME_ARGS") {
-        cmd.args(user_args.trim().split(ARG_SEP).map(ToString::to_string));
-    }
-
     let config_file = env::current_dir()
         .expect("should have permission and exist")
         .join("terrariaConfig.txt");
+
     if config_file.try_exists().is_ok_and(|e| e) {
         cmd.arg("-config");
         cmd.arg(config_file);
+    } else if let Ok(user_args) = env::var("GAME_ARGS") {
+        cmd.args(user_args.trim().split(ARG_SEP).map(ToString::to_string));
     }
 
     cmd.stdout(Stdio::piped())
@@ -33,6 +32,14 @@ pub fn command(server_path: &Path) -> Command {
     cmd
 }
 
+pub fn port() -> u32 {
+    get_arg_or(
+        "-port ",
+        Some(&env::current_dir().unwrap().join("terrariaConfig.txt")),
+        7777,
+    )
+}
+
 #[cfg(windows)]
 pub fn info(server_path: &Path, start_time: SystemTime) -> anyhow::Result<ServerInfo> {
     use crate::games::version_info;
@@ -41,7 +48,10 @@ pub fn info(server_path: &Path, start_time: SystemTime) -> anyhow::Result<Server
         .context("finding version from file")?
         .file_version;
 
+    let port = port();
+
     Ok(ServerInfo {
+        port,
         version,
         start_time,
         mods: vec![],

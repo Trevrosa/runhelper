@@ -65,7 +65,10 @@ pub async fn info(
 
     world_path.set_extension("twld");
 
+    let port = super::vanilla::port();
+
     Ok(ServerInfo {
+        port,
         start_time,
         version,
         mods: mods_from_twld(client, &world_path).await?,

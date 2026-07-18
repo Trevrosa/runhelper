@@ -58,6 +58,7 @@ struct AppState {
 
 #[derive(Serialize, Debug, Clone)]
 struct ServerInfo {
+    port: u32,
     start_time: SystemTime,
     // includes variant
     version: String,

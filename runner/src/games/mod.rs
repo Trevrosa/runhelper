@@ -1,4 +1,4 @@
-use std::{fmt::Debug, path::Path, sync::Arc, time::SystemTime};
+use std::{fmt::Debug, path::Path, str::FromStr, sync::Arc, time::SystemTime};
 
 use reqwest::{Client, StatusCode};
 use serde::Serialize;
@@ -92,4 +92,32 @@ pub enum Mod {
 fn version_info(file_path: &Path) -> anyhow::Result<VersionInfo> {
     use win32_version_info::VersionInfo;
     Ok(VersionInfo::from_file(file_path)?)
+}
+
+/// Gets `arg` from `file` first, if it's Some, else get from `GAME_ARGS`, else return the `default`.
+///
+/// `arg` should include all characters before the arg value, including the separator (eg. ` `, `=`)
+fn get_arg_or<T: FromStr + std::fmt::Display>(arg: &str, file: Option<&Path>, default: T) -> T {
+    assert!(!arg.is_empty());
+    let sep = arg.chars().last().unwrap();
+
+    let args = if let Some(file) = file
+        && file.try_exists().is_ok_and(|e| e)
+    {
+        Some(std::fs::read_to_string(file).unwrap())
+    } else if let Ok(args) = std::env::var("GAME_ARGS") {
+        Some(args)
+    } else {
+        None
+    };
+
+    if let Some(args) = args
+        && let Some(arg) = args.split(ARG_SEP).find(|a| a.starts_with(arg))
+        && let Some(value) = arg.split(sep).last().and_then(|p| p.parse().ok())
+    {
+        value
+    } else {
+        tracing::warn!("using default {arg}{default}");
+        default
+    }
 }

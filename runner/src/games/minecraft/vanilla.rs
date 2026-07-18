@@ -57,8 +57,29 @@ fn find_jar(server_path: &Path, name: &str) -> Result<OsString, &'static str> {
     }
 }
 
+pub fn port(server_path: &Path) -> Option<u32> {
+    if server_path
+        .join("server.properties")
+        .try_exists()
+        .is_ok_and(|e| e)
+    {
+        let mut port = None;
+        for line in std::fs::read_to_string(server_path).ok()?.lines() {
+            let line = line.trim();
+            if line.starts_with("query.port=") {
+                port = Some(line.split('=').last()?.parse().ok()?)
+            }
+        }
+
+        port
+    } else {
+        None
+    }
+}
+
 pub async fn info(server_path: &Path, start_time: SystemTime) -> anyhow::Result<ServerInfo> {
     Ok(ServerInfo {
+        port: port(server_path).unwrap_or(25565),
         start_time,
         version: get_version(&server_path.join("versions"), "vanilla").await?,
         mods: vec![],

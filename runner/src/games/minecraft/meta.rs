@@ -51,6 +51,7 @@ pub async fn get_version(versions: &Path, variant: &str) -> anyhow::Result<Strin
 }
 
 pub async fn get_info_mods(
+    server_path: &Path,
     versions: &Path,
     mods: &Path,
     variant: &str,
@@ -105,6 +106,7 @@ pub async fn get_info_mods(
     }
 
     Ok(ServerInfo {
+        port: super::vanilla::port(server_path).unwrap_or(25565),
         start_time,
         version,
         mods,

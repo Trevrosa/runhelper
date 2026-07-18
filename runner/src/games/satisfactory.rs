@@ -100,8 +100,19 @@ impl GameServer<ServerType> for Satisfactory {
             .split('-')
             .skip(1)
             .collect();
+        let port = {
+            if let Ok(args) = env::var("GAME_ARGS")
+                && let Some(arg) = args.split(ARG_SEP).find(|a| a.starts_with("-Port="))
+                && let Some(port) = arg.split('=').last().and_then(|p| p.parse().ok())
+            {
+                port
+            } else {
+                7777
+            }
+        };
 
         Ok(ServerInfo {
+            port,
             version: format!("v{} ({}, build {})", v_info[1], v_info[0], v_info[3]),
             start_time,
             mods: vec![],

@@ -32,8 +32,8 @@ the binary can be run with the argument `--wd` to set the program's working dire
 ### minecraft
 
 - `GAME_ARGS` sets the jvm args.
-- for `paper`, `forge`, and `vanilla`, if the file `user_jvm_args.txt` exists at the server directory, it takes precedence over `GAME_ARGS`.
+- for `paper`, `forge`, and `vanilla`, you can create `user_jvm_args.txt` at the server directory, taking precedence over `GAME_ARGS`.
 
 ### terraria
 
-- instead of setting `GAME_ARGS`, you can create a [`terrariaConfig.txt`](https://terraria.wiki.gg/wiki/Guide:Setting_up_a_Terraria_server#Making_a_configuration_file) at the `runner`'s working directory.
+- you can create a [`terrariaConfig.txt`](https://terraria.wiki.gg/wiki/Guide:Setting_up_a_Terraria_server#Making_a_configuration_file) at the `runner`'s working directory, taking precedence over `GAME_ARGS`.

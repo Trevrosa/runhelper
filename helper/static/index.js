@@ -324,9 +324,11 @@ async function getServerIp() {
         AUTH_PASSWORD_KEY
       );
 
-      if (response.ok) {
-        const ip = await response.text();
-        serverIp.innerHTML = `<div class="status success"><span class="noselect">Server IP: </span>${ip.trim()}</div>`;
+      if (response.ok && port) {
+        let ip = await response.text();
+        serverIp.innerHTML = `<div class="status success"><span class="noselect">Server IP: </span>${ip.trim()}:${port}</div>`;
+      } else if (!port) {
+        serverIp.innerHTML = `<div class="status error">Failed to get IP: unavailable (try again)</div>`;
       } else {
         const error = await response.text();
         serverIp.innerHTML = `<div class="status error">Failed to get IP: ${error}</div>`;
@@ -341,6 +343,8 @@ async function getServerIp() {
     }
   }, AUTH_PASSWORD_KEY);
 }
+
+var port = null;
 
 async function loadServerInfo() {
   if (serverInfoRequestInFlight) {
@@ -375,6 +379,7 @@ async function loadServerInfo() {
     }
 
     const info = await response.json();
+    port = info.port;
     if (lastServerRunning === false) {
       return;
     }
