@@ -6,6 +6,13 @@ this is meant to be run on the computer that will be running the game server.
 
 should only be accessible locally.
 
+## how to run
+
+1. download the `runner` binary from [releases](https://github.com/Trevrosa/runhelper/releases) or build it from source `cargo install --path .` 
+2. [configure it](#configuration), reading the [game-specific notes](#game-specific-notes)
+3. use [nssm](https://nssm.cc/usage) or create your own service or run it in a terminal
+4. if using nssm, ensure it only stops the `runner` by control c (in the gui, ensure only `Shutdown > Generate Control-C` is enabled)  
+
 ## configuration
 
 the binary can be run with the argument `--wd` to set the program's working directory.

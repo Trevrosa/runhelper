@@ -2,7 +2,12 @@
 
 this is meant to run on the other computer, and is accessible to the internet
 
-the `/static` files can be precompressed with [brotli](https://github.com/google/brotli)
+## how to run
+ 
+1. download the `helper` binary from [releases](https://github.com/Trevrosa/runhelper/releases) or build it from source `cargo install --path .`
+2. [configure it](#configuration)
+3. if running as a service, ensure the `/static` directory is at the working directory
+4. the `/static` files should be precompressed with [brotli](https://github.com/google/brotli) (`brotli -8 static/*`)
 
 ## configuration
 
