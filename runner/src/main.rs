@@ -147,7 +147,7 @@ async fn main() -> anyhow::Result<()> {
     }
 
     if let Err(err) = dotenvy::dotenv() {
-        tracing::warn!("could not load .env: {err}");
+        eprintln!("could not load .env: {err}");
     }
 
     let filter = env::var(EnvFilter::DEFAULT_ENV).map_or(LevelFilter::INFO, |e| {
